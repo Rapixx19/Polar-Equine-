@@ -129,3 +129,5 @@ Fixtures land in `tests/fixtures/` from Slice 9 onward — Parquet for synthetic
 - **Rule 9**: No silent failures — failed compute marks `metrics_status='failed'`, never returns zeros
 - **Rule 11**: One-way dep: `web → algo`, never reverse
 - **Rule 13**: Bump `algo_version` on every algorithm change
+
+<!-- ci-trigger: algo-only path filter check (slice 1 verification) -->
