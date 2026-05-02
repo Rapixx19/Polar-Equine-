@@ -32,7 +32,7 @@ web/
 ├── app/
 │   ├── (auth)/page.tsx              # welcome screen (email + consent)
 │   ├── (auth)/auth/sent/page.tsx    # "check your inbox" + iPhone Bluefy hint
-│   ├── (auth)/auth/callback/page.tsx # exchanges magic-link code → session
+│   ├── (auth)/auth/callback/route.ts # Route Handler — exchanges magic-link code → session cookies
 │   ├── (auth)/auth/provision/page.tsx # display-name capture for new riders
 │   ├── (auth)/auth/error/page.tsx   # expired / invalid link
 │   ├── (rider)/home/page.tsx        # placeholder home (full UI in Slice 7)
@@ -40,15 +40,19 @@ web/
 │   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
 │   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id)
 │   ├── api/sessions/[id]/route.ts   # PATCH end / notes
+│   ├── api/ingest/samples/route.ts  # POST HR samples → samples_hr (RLS-enforced)
 │   ├── api/smoke/route.ts           # web → algo bearer round-trip
 │   └── layout.tsx                   # next-app default
 ├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
-├── components/ble/                  # PairButton, ConnectionStatus, UnsupportedBanner, BleTestPanel
+├── components/ble/                  # PairButton, ConnectionStatus, UnsupportedBanner, RecordingControls, BleTestPanel
 ├── lib/
 │   ├── api-client.ts                # algoFetch — adds bearer header
 │   ├── api/session-helpers.ts       # zod schemas shared by sessions routes
+│   ├── api/ingest-validation.ts     # zod schema for /api/ingest/samples wire format
 │   ├── auth/{server,browser,admins}.ts # Supabase ssr clients + admin allow-list
 │   ├── ble/{hr-codec,connection}.ts # 0x2A37 decoder + Web Bluetooth wrapper
+│   ├── ble/batcher.ts               # 2s in-memory HR batcher (IndexedDB queue = Slice 18)
+│   ├── ble/use-ingest-session.ts    # React hook: session lifecycle + batcher orchestration
 │   ├── env.ts                       # lazy env-var validation
 │   ├── activities.ts                # 7-type activity tuple (single source of truth)
 │   └── supabase/types.ts            # generated DB types — regenerate after every migration
