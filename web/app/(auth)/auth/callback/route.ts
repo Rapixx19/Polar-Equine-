@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/error", url));
   }
 
-  let response = NextResponse.redirect(new URL("/home", url));
+  const response = NextResponse.redirect(new URL("/home", url));
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
