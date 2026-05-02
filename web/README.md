@@ -35,12 +35,14 @@ web/
 │   └── layout.tsx                   # next-app default
 ├── lib/
 │   ├── api-client.ts                # algoFetch — adds bearer header
-│   └── env.ts                       # lazy env-var validation
+│   ├── env.ts                       # lazy env-var validation
+│   ├── activities.ts                # 7-type activity tuple (single source of truth)
+│   └── supabase/types.ts            # generated DB types — regenerate after every migration
 ├── public/
 │   ├── manifest.json                # PWA manifest (icons stubbed)
 │   └── sw.js                        # Service Worker stub (full SW = Slice 18)
-├── supabase/                        # local dev DB (slice 2+)
-│   └── migrations/                  # 001-*.sql land here next slice
+├── supabase/                        # local dev DB + migrations
+│   └── migrations/                  # 001_init.sql … 007_anomaly_flags.sql
 ├── tests/
 │   └── smoke.test.ts                # vitest: mocks fetch, asserts _smoke route
 ├── package.json  tsconfig.json  vitest.config.ts
@@ -59,6 +61,7 @@ web/
 | `npm run lint` | ESLint (Next config) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest (one-shot) |
+| `npm run gen:types` | Regenerate `lib/supabase/types.ts` from the live schema |
 | `supabase start` | Local Postgres + Studio (when in `web/`) |
 
 ---
@@ -75,6 +78,20 @@ web/
 | `CRON_SECRET` | server-only | Slice 10 (Rule 14 — required header on `/api/cron/*`) |
 
 `.env.local` is gitignored. Vercel env vars are set in the Vercel dashboard.
+
+---
+
+## After every migration
+
+Regenerate the typed client so server routes pick up new tables/columns:
+
+```bash
+npm run gen:types
+```
+
+(Or, when working through Claude Code with the Supabase MCP enabled, ask Claude to call `mcp__supabase__generate_typescript_types`.)
+
+Commit `lib/supabase/types.ts` alongside the migration file. CI will fail typecheck if they drift.
 
 ---
 
