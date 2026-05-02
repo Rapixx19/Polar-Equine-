@@ -497,7 +497,7 @@ export type Database = {
           {
             foreignKeyName: "session_metrics_session_id_fkey"
             columns: ["session_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
@@ -507,6 +507,7 @@ export type Database = {
         Row: {
           activity_type: string
           band_id: string | null
+          client_session_id: string | null
           created_at: string | null
           end_time: string | null
           horse_id: string
@@ -521,6 +522,7 @@ export type Database = {
         Insert: {
           activity_type: string
           band_id?: string | null
+          client_session_id?: string | null
           created_at?: string | null
           end_time?: string | null
           horse_id: string
@@ -535,6 +537,7 @@ export type Database = {
         Update: {
           activity_type?: string
           band_id?: string | null
+          client_session_id?: string | null
           created_at?: string | null
           end_time?: string | null
           horse_id?: string

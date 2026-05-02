@@ -37,11 +37,14 @@ web/
 │   ├── (auth)/auth/error/page.tsx   # expired / invalid link
 │   ├── (rider)/home/page.tsx        # placeholder home (full UI in Slice 7)
 │   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
+│   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id)
+│   ├── api/sessions/[id]/route.ts   # PATCH end / notes
 │   ├── api/smoke/route.ts           # web → algo bearer round-trip
 │   └── layout.tsx                   # next-app default
 ├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
 ├── lib/
 │   ├── api-client.ts                # algoFetch — adds bearer header
+│   ├── api/session-helpers.ts       # zod schemas shared by sessions routes
 │   ├── auth/{server,browser,admins}.ts # Supabase ssr clients + admin allow-list
 │   ├── env.ts                       # lazy env-var validation
 │   ├── activities.ts                # 7-type activity tuple (single source of truth)
@@ -51,9 +54,9 @@ web/
 │   ├── manifest.json                # PWA manifest (icons stubbed)
 │   └── sw.js                        # Service Worker stub (full SW = Slice 18)
 ├── supabase/                        # local dev DB + migrations
-│   └── migrations/                  # 001_init.sql … 007_anomaly_flags.sql
+│   └── migrations/                  # 001_init.sql … 010_sessions_update_rls.sql
 ├── tests/
-│   └── smoke.test.ts                # vitest: mocks fetch, asserts _smoke route
+│   └── *.test.ts                    # vitest: smoke + auth + sessions
 ├── package.json  tsconfig.json  vitest.config.ts
 └── vercel.json                      # buildCommand + crons (cron filled in Slice 10)
 ```
