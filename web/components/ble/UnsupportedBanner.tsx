@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 
+// No-op subscribe: support state is fixed for the page lifetime — no events to listen for.
 function subscribe(): () => void {
   return () => {};
 }
@@ -10,8 +11,10 @@ function getSnapshot(): boolean {
   return typeof navigator !== "undefined" && "bluetooth" in navigator;
 }
 
-// On the server we assume support so the banner doesn't flash; the client snapshot
-// runs on hydration and reveals it for browsers without Web Bluetooth.
+// SSR contract: assume "supported" so the banner doesn't render on the server. On
+// hydration, getSnapshot runs in the browser; if Web Bluetooth is missing, the
+// banner appears once. This is intentional — flipping the other way (assume
+// unsupported) would render the banner during SSR and flash for every supported user.
 function getServerSnapshot(): boolean {
   return true;
 }
