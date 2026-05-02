@@ -1,0 +1,341 @@
+# .cursorrules — La Fattoria
+
+> **READ THIS FILE FIRST, EVERY SESSION, BEFORE RESPONDING TO ANY PROMPT.**
+>
+> These rules are non-negotiable. If a request would violate one of them, push back rather than comply silently.
+
+---
+
+## Session start checklist (do this before anything else)
+
+1. Read this file end-to-end.
+2. Read `README.md` (canonical activity table + folder structure).
+3. Read `05-build-plan.md` and ask the human **which phase + slice is active right now**.
+4. Open the spec file for that slice in `web/`, `algorithms/`, or `shared/`.
+5. Check `MEMORY.md` (auto-loaded) for project-specific decisions and deferrals.
+6. Only then start work.
+
+If the human hasn't named the active slice, ask one question: *"Which phase / slice are we on?"* — don't guess.
+
+---
+
+## Project context
+
+**La Fattoria** (codename: Sentavita) — a research data-collection platform for sport horses. **Monorepo** at `github.com/Rapixx19/Polar-Equine-`, with two deployable sub-trees:
+
+- `web/` — Next.js 14 + TypeScript PWA + admin dashboard, deployed to Vercel (Vercel root = `web/`)
+- `algo/` — Python 3.11 + FastAPI algorithm service, deployed to Railway (Railway root = `algo/`)
+
+Shared Supabase Postgres database (project ref `eehbdrqueinqmocmjydy`, eu-central-1). Communication is HTTPS-only via shared bearer token. **No shared code** between TypeScript and Python — the only "shared" thing is the Postgres schema in `web/supabase/migrations/`.
+
+### Monorepo layout
+
+```
+Polar-Equine-/
+├── README.md           # who works on what, where to start
+├── .cursorrules        # this file — read every session
+├── .github/workflows/  # path-filtered CI: web changes don't trigger algo tests
+├── docs/               # spec — source of truth (the current lafattoria-docs/)
+├── web/                # Next.js (Vercel)
+├── algo/               # Python + FastAPI (Railway) — FREELANCERS WORK HERE
+│   ├── README.md       # freelancer entry point
+│   ├── algorithms/     # one file per algorithm, single public function
+│   ├── service/        # FastAPI app + /compute
+│   └── tests/fixtures/ # Parquet + PhysioNet reference; no H10 needed
+├── scripts/            # cross-cutting SQL + tooling
+└── proof/              # evidence per slice
+```
+
+The spec is the source of truth — code conflicting with spec is a bug. If the spec is wrong or self-contradictory, flag it loudly; don't silently work around.
+
+**Freelancer rule:** `algo/` is fully self-contained. A freelancer touching `algorithms/` never needs to read or modify anything in `web/`. Their entry point is `algo/README.md` + `docs/shared/07-freelancer-onboarding.md`.
+
+---
+
+## V.0 mission (re-read every session)
+
+V.0 software runs on **stock Polar H10 Equine**. The mission is exactly three things:
+
+1. **Collect** — every session, reliably, from H10 (HR + R-R + ACC + ECG) → phone → API → database.
+2. **Clean** — R-R artefact correction, sample validation, gap detection, per-session quality scoring.
+3. **Classify** — rule-based gait detection (walk / trot / canter / jump); rider corrects; corrections become ground truth.
+
+V.0 is **not** a Whoop-style consumer product. **No** strain 0–21, **no** readiness 0–100, **no** narrative engine, **no** illness alerts. Those are V.1 features that depend on hardware (skin temp, barometer, 24/7 wear) we don't have yet.
+
+If asked to build features beyond collect / clean / classify, push back: *"This looks like V.1 territory. Add to V.0 scope, or defer to `V1_BACKLOG.md`?"*
+
+---
+
+## Build phase awareness (the 20 slices, in 6 phases)
+
+| Phase | Slices | Goal | Hrs | Milestone |
+|---|---|---|---|---|
+| **0 — Pre-flight** | 0 + accounts | PMD codec spike (1-hr cap) + domain/repos/hello-world deploys | ~3 | Go/no-go on Slice 12 budget |
+| **1 — Foundation** | 1, 2, 3, 4 | Bearer round-trip + schema + magic-link auth + sessions API | ~13 | Sign-in works on phone |
+| **2 — First smoke** | 5, 6, 7 | BLE pair → ingest → record-on-self | ~16 | **Smoke test on Ferdinand's chest** |
+| **3 — Compute** | 8, 9, 10, 11, 11.5 | V.0.1 migrations + algo + cron runner + TRIMP + recovery τ | ~21 | **HRV row appears in DB** |
+| **4 — Full sensors** | 12, 13, 14 | PMD codec (ACC+ECG) + gait + stress test | ~14–22 | **ECG/ACC flow + stress test** |
+| **5 — Review + admin** | 15, 16, 16.5 | Label review UI + admin dashboard + anomaly-rest | ~17 | Rider reviews <60s |
+| **6 — Production gate** | 17, 18 | Multi-rider RLS + Realtime auth + iPhone + Service Worker + first-on-horse | ~11 | **Stable-trip ready** |
+
+Total: ~108 hrs / 4–5 weekends.
+
+**Behaviour rules tied to phases:**
+
+- Don't pre-implement features from later slices, even if convenient.
+- Each slice has a verification step — don't mark complete; the human runs it and confirms.
+- If a request crosses slice boundaries, ask: *"This touches slices X and Y. Which first?"*
+- Each slice has a kill switch in `05-build-plan.md`. If a slice exceeds 1.5x its estimate, raise the kill switch — don't grind.
+
+---
+
+## Hard rules (non-negotiable)
+
+### Rule 1 — 150-line file limit
+
+Every source file ≤ 150 lines including imports, blank lines, comments. Split before adding more.
+
+When splitting:
+- Identify the file's single responsibility
+- Extract distinct responsibilities into new files
+- Public interface stays clear: one default export OR a small set of named exports
+
+Do **not** generate a 200-line file with a TODO to split later. Split now.
+
+**Exemptions** (rule does not apply):
+- SQL migration files (`supabase/migrations/*.sql`) — atomicity matters
+- JSON / YAML config files — third-party schemas
+- Auto-generated files (Supabase types, etc.)
+- Test fixture data (`.parquet`, `.json`)
+- Markdown documentation
+- Third-party copied code (e.g. shadcn/ui in `components/ui/`)
+
+If source code genuinely cannot be split below 150 lines, prefer to split anyway by extracting helpers. If splitting would actively harm clarity, add a one-line comment at the top explaining why and keep ≤ 180 lines maximum.
+
+### Rule 2 — Modular plug-in / plug-out
+
+Every feature is an isolated module. Adding feature X must **never** require editing feature Y's code.
+
+- New algorithm → new file in `algorithms/` exposing one public function
+- New screen → new file in `app/` with components in `components/`
+- New API route → new file in `app/api/`
+- Cross-feature shared logic → goes through `lib/` utilities
+
+If asked to "add X to existing module Y," consider whether X should be its own module that Y consumes.
+
+### Rule 3 — Algorithms expose ONE public function
+
+```python
+# algorithms/some_algorithm.py
+from dataclasses import dataclass
+import numpy as np
+import pandas as pd
+
+@dataclass
+class SomeConfig:
+    threshold: float = 0.5
+
+@dataclass
+class SomeResult:
+    value: float
+    quality: float        # 0..1
+    algo_version: str     # bumped on every algorithm change
+
+def compute(              # ← THE single public function
+    inputs: pd.DataFrame,
+    config: SomeConfig = SomeConfig(),
+) -> SomeResult:
+    """
+    What this does (one paragraph).
+    Why it's done this way (one paragraph).
+    Equine-specific notes (humans-vs-horses pitfalls).
+    References: Author Year Journal Volume:Page
+    """
+    ...
+
+def _helper(...):         # private, prefixed with _
+    ...
+```
+
+Other modules import only the public function. Algorithms are swappable.
+
+### Rule 4 — Algorithms self-teaching for the freelancer
+
+The freelancer comes in **after** V.0 ships to improve baselines. Their first PR is replacing one module's internals — the code must support that workflow.
+
+- Docstrings explain WHAT, WHY, equine-specific tuning, citations
+- Magic numbers have inline comments explaining provenance
+- Citation format: `Author Year Journal Volume:Page`
+- If a freelancer reading the file cold can't understand it, comments are insufficient
+
+### Rule 5 — Integration tests mandatory
+
+Every feature module ships with at least one integration test. Unit tests optional, integration mandatory.
+
+- Web: Playwright for user flows, Vitest + MSW for API routes
+- Algorithms: pytest with Parquet fixtures + FastAPI TestClient
+- Tests live alongside the feature, not in a parallel hierarchy
+
+### Rule 6 — Database changes via migrations only
+
+Schema changes go through numbered SQL migration files in `supabase/migrations/`. **Never edit a migration that has been applied to production.** To change shipped schema, write a **new** migration that alters it.
+
+**Standing hook:** after every migration, run `supabase gen types typescript --project-id eehbdrqueinqmocmjydy > lib/supabase/types.ts` and commit the regenerated file.
+
+### Rule 7 — TypeScript strict, Python mypy strict
+
+- TypeScript: `"strict": true`. No `any`. Use `unknown` and narrow.
+- Python: type hints on every public function. `mypy --strict` passes in CI.
+
+### Rule 8 — Raw data is sacred
+
+Never overwrite raw samples in `samples_hr`, `samples_acc`, `samples_ecg`. Cleaning produces a **new** column or a new table; the original recording is preserved forever. This is the difference between research-grade and toy.
+
+### Rule 9 — No silent failures
+
+Errors are logged and surfaced. A failed compute marks `metrics_status='failed'` — it does **not** silently produce zeros or fabricated values. Quality scores propagate; consumers know when data is suspect.
+
+When the database approaches the storage wall, the PWA shows *"Saving offline — sync paused"* and keeps buffering to IndexedDB until the 90% hard cap, not silently drop samples.
+
+### Rule 10 — Always ask before adding dependencies
+
+New npm or pip package? Justify it in the PR description.
+
+Especially scrutinize:
+- scipy / numpy / ML libs on web side (no — that's algo-side only)
+- ML libraries in V.0 anywhere (rule-based only; ML is V.1)
+- Anything that requires native compilation on Railway (slow, fragile)
+
+### Rule 11 — One-way dependency: web → algo, never reverse
+
+Web calls algo via HTTPS POST. Algo never calls web. Algo writes results to Supabase; web sees them via Supabase Realtime or polling.
+
+If a feature seems to require algo → web, restructure so the data flow is one-directional.
+
+### Rule 12 — Idempotency on writes
+
+Every state-changing endpoint accepts an idempotency key (UUID). Duplicate calls with the same key return the same result, not a new resource. Critical for double-tap protection and retry safety.
+
+### Rule 13 — `algo_version` on every metric write
+
+Every row in `session_metrics`, `gait_segments`, `anomaly_flags`, `label_corrections` carries the `algo_version` constant from the algo repo. Bump the constant on **any** algorithm change, however small. Six months from now, the freelancer needs to know which version produced which metric.
+
+### Rule 14 — Cron endpoints are protected
+
+Every `/api/cron/*` endpoint validates a `CRON_SECRET` header before doing work. Never trust that "only Vercel calls it." Treat it like any public endpoint.
+
+---
+
+## Gap-fix items folded into specific slices
+
+These were absent in earlier drafts. Each is now anchored to a phase:
+
+- **CI / GitHub Actions** (Phase 1, Slice 1): mypy --strict, vitest, tsc --noEmit, ruff. Block merges on red.
+- **Supabase type generation** (Phase 1, Slice 2 + standing): re-run after every migration.
+- **Local dev** (Phase 1, Slice 1): Supabase CLI for local Postgres + migrations. Production is **not** a development target.
+- **Vercel cron secret + timeout** (Phase 3, Slice 10): `CRON_SECRET` header; `maxDuration: 60` in `vercel.json` for `/compute-runner`.
+- **`algo_version` pinning** (Phase 3, Slice 9): standing rule (Rule 13).
+- **PWA manifest + Service Worker stub** (Phase 1, Slice 1): scaffold so install prompts work from day one; full passive-stream SW lands in Slice 18.
+- **First-on-horse verification** (Phase 6, post-Slice 18): strap H10 to a real horse for one session before the stable trip; verify ECG/ACC values look horse, not human.
+- **Reference dataset** (Phase 3, Slice 9): cross-check HRV outputs against a PhysioNet RR fixture, not just synthetic.
+
+---
+
+## Code style
+
+### TypeScript / Next.js
+- App Router only
+- Server Components by default; `'use client'` only for interactivity, hooks, browser APIs (BLE is always client)
+- Imports: external → `@/` absolute → relative
+- shadcn/ui components copied into `components/ui/`, not via npm
+- Tailwind only; no custom CSS files except `globals.css`
+
+### Python / FastAPI
+- Pydantic models for all request/response shapes
+- `extra='forbid'` on Pydantic configs (reject unknown fields, don't silently ignore)
+- structlog with JSON output for Railway log aggregation
+- Errors raise typed exceptions (`AlgoError`, `MissingDataError`); never return None on failure
+
+### SQL
+- Snake_case for tables and columns
+- Every table and column has a `comment on`
+- Every table has `created_at timestamptz default now()`
+- UUIDs for IDs; `bigserial` only for high-volume sample tables
+- RLS policies named clearly: `"rider can read own sessions"`, not `"policy_1"`
+
+### Naming
+- React components: `PascalCase.tsx`
+- Utility modules: `kebab-case.ts`
+- Python modules: `snake_case.py`
+- API routes: lowercase, App Router conventions
+
+---
+
+## When implementing a feature (in order)
+
+1. **Read the spec** for this feature. If no spec exists, propose one before writing code.
+2. **Identify the slice** this work belongs to.
+3. **List the files you will create / modify** (≤ 5 per slice). Get human nod.
+4. **Write the integration test first** (or its skeleton).
+5. **Implement.** Watch the 150-line limit. Split as you go.
+6. **Run the test.** Fix until green.
+7. **Self-review against this file.** Any rule violations?
+8. **Surface the verification step** to the human. Don't mark complete; they confirm.
+
+---
+
+## When responding to the human
+
+- **Be concise.** If the answer is "yes, done," say that.
+- **Be honest about uncertainty.** If you don't know whether something works, say so. Suggest a test.
+- **Push back on bad ideas.** Don't comply silently with requests that violate these rules or break the V.0 mission.
+- **Ask before generating large outputs.** A 500-line response is rarely the right answer.
+- **If genuinely ambiguous, ask one specific question** and stop.
+
+---
+
+## What to refuse
+
+- Whoop-style features (readiness, strain, illness alerts) in V.0 — V.1 territory
+- Features that require sensors not on Polar H10 (skin temp, barometer, GPS) — V.1 hardware
+- Skipping integration tests "for speed"
+- Disabling RLS to make a query work
+- Generating files >150 lines without splitting
+- Modifying applied database migrations
+- `console.log` debug statements that ship to production
+- Deleting raw sample data anywhere in the pipeline
+
+---
+
+## When you encounter problems
+
+- **Test failures:** stop and fix. Don't push a TODO to fix later.
+- **Mysterious BLE behavior:** add `console.log` *temporarily*, remove before commit.
+- **Supabase RLS blocking a query:** verify the policy. **Never** disable RLS as a fix.
+- **Vercel cron not firing:** check `vercel.json` syntax + dashboard cron logs.
+- **Session running long without progress:** stop, summarise what you tried, ask the human for direction.
+
+---
+
+## Files to read before non-trivial work
+
+Once the monorepo is created (Slice 1), these specs live at `docs/`. Until then they live at `update_further/docs/lafattoria-docs/`. Both paths refer to the same files.
+
+- `docs/README.md` — folder map + canonical activity table
+- `docs/00-product-overview.md`
+- `docs/01-architecture.md`
+- `docs/02-database-schema.md`
+- `docs/shared/04-v0-mission.md`
+- `docs/05-build-plan.md` (current slice)
+- `docs/V1_BACKLOG.md` (deferred items)
+- This file (`.cursorrules` at repo root)
+- `algo/README.md` (when working in `algo/`)
+
+---
+
+## When in doubt
+
+1. Re-read the relevant spec file
+2. Re-read this file
+3. Ask the human one specific question
+4. Do not guess silently

@@ -1,0 +1,47 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+
+# Env files (secrets)
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.local.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Supabase local
+**/supabase/.branches/
+**/supabase/.temp/
+
+# Proof / scratch (per-slice evidence is for the human, not the repo)
+proof/
+
+# Uploads / scratch
+*.zip

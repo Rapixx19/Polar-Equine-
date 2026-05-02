@@ -1,0 +1,42 @@
+name: algo-ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "algo/**"
+      - ".github/workflows/algo-ci.yml"
+  pull_request:
+    paths:
+      - "algo/**"
+      - ".github/workflows/algo-ci.yml"
+
+defaults:
+  run:
+    working-directory: algo
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.11
+        run: uv python install 3.11
+
+      - name: Sync deps
+        run: uv sync --dev
+
+      - name: Lint (ruff)
+        run: uv run ruff check .
+
+      - name: Typecheck (mypy --strict)
+        run: uv run mypy --strict service algorithms
+
+      - name: Test (pytest)
+        run: uv run pytest
