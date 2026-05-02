@@ -36,16 +36,19 @@ web/
 │   ├── (auth)/auth/provision/page.tsx # display-name capture for new riders
 │   ├── (auth)/auth/error/page.tsx   # expired / invalid link
 │   ├── (rider)/home/page.tsx        # placeholder home (full UI in Slice 7)
+│   ├── (rider)/ble-test/page.tsx    # BLE smoke test page — Android Chrome only for now
 │   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
 │   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id)
 │   ├── api/sessions/[id]/route.ts   # PATCH end / notes
 │   ├── api/smoke/route.ts           # web → algo bearer round-trip
 │   └── layout.tsx                   # next-app default
 ├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
+├── components/ble/                  # PairButton, ConnectionStatus, UnsupportedBanner, BleTestPanel
 ├── lib/
 │   ├── api-client.ts                # algoFetch — adds bearer header
 │   ├── api/session-helpers.ts       # zod schemas shared by sessions routes
 │   ├── auth/{server,browser,admins}.ts # Supabase ssr clients + admin allow-list
+│   ├── ble/{hr-codec,connection}.ts # 0x2A37 decoder + Web Bluetooth wrapper
 │   ├── env.ts                       # lazy env-var validation
 │   ├── activities.ts                # 7-type activity tuple (single source of truth)
 │   └── supabase/types.ts            # generated DB types — regenerate after every migration
