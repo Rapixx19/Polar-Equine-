@@ -81,3 +81,5 @@ web/
 ## Deploy
 
 Connect this repo to Vercel with **Root Directory = `web/`**. Vercel auto-detects `next` and uses `vercel.json` for build/cron config.
+
+<!-- ci-trigger: web-only path filter check (slice 1 verification) -->
