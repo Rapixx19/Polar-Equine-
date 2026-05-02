@@ -112,7 +112,7 @@ Logout does NOT delete data — sessions remain in DB linked to the rider's acco
 
 For V.0 (research framing):
 - All riders sign a consent form when first granted access (admin-managed)
-- Consent records linked to `rider_profiles.consented_at` (TODO: add column in 002 migration)
+- Consent records linked to `rider_profiles.consented_at` (shipped in `001_init.sql`; populated by `/api/auth/provision-rider` in Slice 3)
 - Riders can request data deletion via email to admin
 - GDPR-compliant deletion: cascading delete from `rider_profiles` removes all their sessions, samples, labels
 

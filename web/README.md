@@ -30,14 +30,23 @@ curl -i http://localhost:3000/api/smoke
 ```
 web/
 ├── app/
-│   ├── (auth)/page.tsx              # placeholder welcome (Slice 3 replaces)
+│   ├── (auth)/page.tsx              # welcome screen (email + consent)
+│   ├── (auth)/auth/sent/page.tsx    # "check your inbox" + iPhone Bluefy hint
+│   ├── (auth)/auth/callback/page.tsx # exchanges magic-link code → session
+│   ├── (auth)/auth/provision/page.tsx # display-name capture for new riders
+│   ├── (auth)/auth/error/page.tsx   # expired / invalid link
+│   ├── (rider)/home/page.tsx        # placeholder home (full UI in Slice 7)
+│   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
 │   ├── api/smoke/route.ts           # web → algo bearer round-trip
 │   └── layout.tsx                   # next-app default
+├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
 ├── lib/
 │   ├── api-client.ts                # algoFetch — adds bearer header
+│   ├── auth/{server,browser,admins}.ts # Supabase ssr clients + admin allow-list
 │   ├── env.ts                       # lazy env-var validation
 │   ├── activities.ts                # 7-type activity tuple (single source of truth)
 │   └── supabase/types.ts            # generated DB types — regenerate after every migration
+├── proxy.ts                         # Next 16 proxy — refreshes Supabase session each request
 ├── public/
 │   ├── manifest.json                # PWA manifest (icons stubbed)
 │   └── sw.js                        # Service Worker stub (full SW = Slice 18)
@@ -72,9 +81,11 @@ web/
 |---|---|---|
 | `ALGO_BASE_URL` | server-only | Base URL for algo service. Local: `http://localhost:8787`. Prod: `https://algo.lafattoria.app` |
 | `ALGO_BEARER_TOKEN` | server-only | Shared secret with algo. Generated once in Slice 1 — stored in 1Password |
-| `NEXT_PUBLIC_SUPABASE_URL` | client+server | Slice 2 |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client+server | Slice 2 |
-| `SUPABASE_SERVICE_ROLE_KEY` | server-only | Slice 2 (admin routes only) |
+| `NEXT_PUBLIC_SUPABASE_URL` | client+server | Slice 3 — Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client+server | Slice 3 — Supabase anon key |
+| `NEXT_PUBLIC_APP_URL` | client+server | Slice 3 — origin used for magic-link `emailRedirectTo` |
+| `ADMIN_EMAILS` | server-only | Slice 3 — comma-separated admin allow-list |
+| `SUPABASE_SERVICE_ROLE_KEY` | server-only | Slice 15+ (admin routes only) |
 | `CRON_SECRET` | server-only | Slice 10 (Rule 14 — required header on `/api/cron/*`) |
 
 `.env.local` is gitignored. Vercel env vars are set in the Vercel dashboard.
