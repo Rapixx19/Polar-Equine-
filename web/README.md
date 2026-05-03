@@ -35,8 +35,11 @@ web/
 │   ├── (auth)/auth/callback/route.ts # Route Handler — exchanges magic-link code → session cookies
 │   ├── (auth)/auth/provision/page.tsx # display-name capture for new riders
 │   ├── (auth)/auth/error/page.tsx   # expired / invalid link
-│   ├── (rider)/home/page.tsx        # placeholder home (full UI in Slice 7)
-│   ├── (rider)/ble-test/page.tsx    # BLE smoke test page — Android Chrome only for now
+│   ├── (rider)/home/page.tsx        # rider home — activity tile picker
+│   ├── (rider)/start/horse/page.tsx # RLS-filtered horse picker
+│   ├── (rider)/session/new/page.tsx # combined connect + record + end
+│   ├── (rider)/session/[id]/saved/page.tsx # post-session confirmation
+│   ├── (rider)/ble-test/page.tsx    # BLE smoke/dev page — Android Chrome only for now
 │   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
 │   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id)
 │   ├── api/sessions/[id]/route.ts   # PATCH end / notes
@@ -45,6 +48,7 @@ web/
 │   └── layout.tsx                   # next-app default
 ├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
 ├── components/ble/                  # PairButton, ConnectionStatus, UnsupportedBanner, RecordingControls, BleTestPanel
+├── components/session/              # ActivityTile, HorseTile, SessionRecorder
 ├── lib/
 │   ├── api-client.ts                # algoFetch — adds bearer header
 │   ├── api/session-helpers.ts       # zod schemas shared by sessions routes
@@ -55,6 +59,8 @@ web/
 │   ├── ble/use-ingest-session.ts    # React hook: session lifecycle + batcher orchestration
 │   ├── env.ts                       # lazy env-var validation
 │   ├── activities.ts                # 7-type activity tuple (single source of truth)
+│   ├── horses/server.ts             # RLS-scoped horses fetch helper
+│   ├── sessions/saved-summary.ts    # pure-fn guards for /session/[id]/saved
 │   └── supabase/types.ts            # generated DB types — regenerate after every migration
 ├── proxy.ts                         # Next 16 proxy — refreshes Supabase session each request
 ├── public/
@@ -64,6 +70,8 @@ web/
 │   └── migrations/                  # 001_init.sql … 010_sessions_update_rls.sql
 ├── tests/
 │   └── *.test.ts                    # vitest: smoke + auth + sessions
+├── scripts/
+│   └── verify-slice-7.sql           # patched smoke-test verification query (Slice 7)
 ├── package.json  tsconfig.json  vitest.config.ts
 └── vercel.json                      # buildCommand + crons (cron filled in Slice 10)
 ```
