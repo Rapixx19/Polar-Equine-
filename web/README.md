@@ -41,9 +41,10 @@ web/
 │   ├── (rider)/session/[id]/saved/page.tsx # post-session confirmation
 │   ├── (rider)/ble-test/page.tsx    # BLE smoke/dev page — Android Chrome only for now
 │   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
-│   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id)
+│   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id; 409 on cross-rider horse conflict)
 │   ├── api/sessions/[id]/route.ts   # PATCH end / notes
-│   ├── api/ingest/samples/route.ts  # POST HR samples → samples_hr (RLS-enforced)
+│   ├── api/ingest/samples/route.ts  # POST HR samples → samples_hr (pre-flight 404/403/409 + last_ingest_at heartbeat)
+│   ├── api/cron/abandon-stale/route.ts # GET — marks active sessions idle >12h as abandoned (CRON_SECRET-protected)
 │   ├── api/smoke/route.ts           # web → algo bearer round-trip
 │   └── layout.tsx                   # next-app default
 ├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
@@ -53,7 +54,7 @@ web/
 │   ├── api-client.ts                # algoFetch — adds bearer header
 │   ├── api/session-helpers.ts       # zod schemas shared by sessions routes
 │   ├── api/ingest-validation.ts     # zod schema for /api/ingest/samples wire format
-│   ├── auth/{server,browser,admins}.ts # Supabase ssr clients + admin allow-list
+│   ├── auth/{server,browser,admins,service-role}.ts # Supabase ssr clients + admin allow-list + cron service-role client
 │   ├── ble/{hr-codec,connection}.ts # 0x2A37 decoder + Web Bluetooth wrapper
 │   ├── ble/batcher.ts               # 2s in-memory HR batcher (IndexedDB queue = Slice 18)
 │   ├── ble/use-ingest-session.ts    # React hook: session lifecycle + batcher orchestration
@@ -67,7 +68,7 @@ web/
 │   ├── manifest.json                # PWA manifest (icons stubbed)
 │   └── sw.js                        # Service Worker stub (full SW = Slice 18)
 ├── supabase/                        # local dev DB + migrations
-│   └── migrations/                  # 001_init.sql … 010_sessions_update_rls.sql
+│   └── migrations/                  # 001_init.sql … 013_label_corrections.sql (Slice 8: 011/012/013 V.0.1 hardening)
 ├── tests/
 │   └── *.test.ts                    # vitest: smoke + auth + sessions
 ├── scripts/

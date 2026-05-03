@@ -122,6 +122,50 @@ export type Database = {
           },
         ]
       }
+      compute_jobs: {
+        Row: {
+          attempts: number
+          created_at: string | null
+          id: string
+          job_type: string
+          last_error: string | null
+          next_run_at: string
+          session_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string | null
+          id?: string
+          job_type: string
+          last_error?: string | null
+          next_run_at?: string
+          session_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          attempts?: number
+          created_at?: string | null
+          id?: string
+          job_type?: string
+          last_error?: string | null
+          next_run_at?: string
+          session_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compute_jobs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       horse_daily: {
         Row: {
           date: string
@@ -247,6 +291,69 @@ export type Database = {
           stable_id?: string | null
         }
         Relationships: []
+      }
+      label_corrections: {
+        Row: {
+          algo_version: string
+          auto_confidence: number | null
+          auto_end_ms: number
+          auto_label_type: string
+          auto_start_ms: number
+          corrected_end_ms: number | null
+          corrected_label_type: string | null
+          corrected_start_ms: number | null
+          correction_kind: string
+          created_at: string | null
+          id: string
+          rider_id: string | null
+          session_id: string
+        }
+        Insert: {
+          algo_version: string
+          auto_confidence?: number | null
+          auto_end_ms: number
+          auto_label_type: string
+          auto_start_ms: number
+          corrected_end_ms?: number | null
+          corrected_label_type?: string | null
+          corrected_start_ms?: number | null
+          correction_kind: string
+          created_at?: string | null
+          id?: string
+          rider_id?: string | null
+          session_id: string
+        }
+        Update: {
+          algo_version?: string
+          auto_confidence?: number | null
+          auto_end_ms?: number
+          auto_label_type?: string
+          auto_start_ms?: number
+          corrected_end_ms?: number | null
+          corrected_label_type?: string | null
+          corrected_start_ms?: number | null
+          correction_kind?: string
+          created_at?: string | null
+          id?: string
+          rider_id?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "label_corrections_rider_id_fkey"
+            columns: ["rider_id"]
+            isOneToOne: false
+            referencedRelation: "rider_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "label_corrections_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       labels: {
         Row: {
@@ -497,7 +604,7 @@ export type Database = {
           {
             foreignKeyName: "session_metrics_session_id_fkey"
             columns: ["session_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "sessions"
             referencedColumns: ["id"]
           },
@@ -512,6 +619,7 @@ export type Database = {
           end_time: string | null
           horse_id: string
           id: string
+          last_ingest_at: string | null
           metrics_status: string | null
           notes: string | null
           rider_id: string
@@ -527,6 +635,7 @@ export type Database = {
           end_time?: string | null
           horse_id: string
           id?: string
+          last_ingest_at?: string | null
           metrics_status?: string | null
           notes?: string | null
           rider_id: string
@@ -542,6 +651,7 @@ export type Database = {
           end_time?: string | null
           horse_id?: string
           id?: string
+          last_ingest_at?: string | null
           metrics_status?: string | null
           notes?: string | null
           rider_id?: string

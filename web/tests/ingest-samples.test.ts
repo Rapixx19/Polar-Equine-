@@ -9,26 +9,50 @@ beforeAll(() => {
 });
 
 const insertSpy = vi.fn<(...args: unknown[]) => void>();
+const updateSpy = vi.fn<(...args: unknown[]) => void>();
 const getUserMock = vi.fn();
 
+type SessionRow = { id: string; status: string; rider_id: string } | null;
 type InsertReturn = { data: Array<{ id: number }> | null; error: { code?: string; message?: string } | null };
+type UpdateReturn = { error: { code?: string; message?: string } | null };
 
 const SESSION_ID = "11111111-1111-4111-8111-111111111111";
 const RIDER_ID = "44444444-4444-4444-8444-444444444444";
+const OTHER_RIDER_ID = "55555555-5555-4555-8555-555555555555";
 
+let sessionRow: SessionRow = { id: SESSION_ID, status: "active", rider_id: RIDER_ID };
 let insertReturn: InsertReturn = { data: [{ id: 1 }], error: null };
+let updateReturn: UpdateReturn = { error: null };
 
 function buildClient() {
   return {
     auth: {},
-    from: vi.fn(() => ({
-      insert: (rows: unknown) => {
-        insertSpy(rows);
+    from: vi.fn((table: string) => {
+      if (table === "sessions") {
         return {
-          select: async () => insertReturn,
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: sessionRow, error: null }),
+            }),
+          }),
+          update: (patch: unknown) => {
+            updateSpy(patch);
+            return {
+              eq: async () => updateReturn,
+            };
+          },
         };
-      },
-    })),
+      }
+      // samples_hr
+      return {
+        insert: (rows: unknown) => {
+          insertSpy(rows);
+          return {
+            select: async () => insertReturn,
+          };
+        },
+      };
+    }),
   };
 }
 
@@ -40,7 +64,9 @@ vi.mock("@/lib/auth/server", () => ({
 afterEach(() => {
   vi.clearAllMocks();
   getUserMock.mockReset();
+  sessionRow = { id: SESSION_ID, status: "active", rider_id: RIDER_ID };
   insertReturn = { data: [{ id: 1 }], error: null };
+  updateReturn = { error: null };
 });
 
 function fakeReq(body: unknown): NextRequest {
@@ -95,7 +121,34 @@ describe("POST /api/ingest/samples", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 200 with received.hr=0 on empty array, no DB call", async () => {
+  it("returns 404 when session_id does not exist", async () => {
+    sessionRow = null;
+    getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
+    const { POST } = await import("@/app/api/ingest/samples/route");
+    const res = await POST(fakeReq(validBody));
+    expect(res.status).toBe(404);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns 403 when session belongs to another rider", async () => {
+    sessionRow = { id: SESSION_ID, status: "active", rider_id: OTHER_RIDER_ID };
+    getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
+    const { POST } = await import("@/app/api/ingest/samples/route");
+    const res = await POST(fakeReq(validBody));
+    expect(res.status).toBe(403);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns 409 when session.status is completed", async () => {
+    sessionRow = { id: SESSION_ID, status: "completed", rider_id: RIDER_ID };
+    getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
+    const { POST } = await import("@/app/api/ingest/samples/route");
+    const res = await POST(fakeReq(validBody));
+    expect(res.status).toBe(409);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 with received.hr=0 on empty array, no DB insert", async () => {
     getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
     const { POST } = await import("@/app/api/ingest/samples/route");
     const res = await POST(fakeReq({ session_id: SESSION_ID, samples: { hr: [] } }));
@@ -105,7 +158,7 @@ describe("POST /api/ingest/samples", () => {
     expect(insertSpy).not.toHaveBeenCalled();
   });
 
-  it("happy path: 3 samples → 200 with received.hr=3, single bulk insert", async () => {
+  it("happy path: 3 samples → 200 with received.hr=3, single bulk insert + last_ingest_at update", async () => {
     getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
     const { POST } = await import("@/app/api/ingest/samples/route");
     const res = await POST(fakeReq(validBody));
@@ -122,6 +175,9 @@ describe("POST /api/ingest/samples", () => {
       rr_ms: 850,
       contact: true,
     });
+    expect(updateSpy).toHaveBeenCalledTimes(1);
+    const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(typeof patch.last_ingest_at).toBe("string");
   });
 
   it("returns 403 when RLS denies the insert (42501)", async () => {

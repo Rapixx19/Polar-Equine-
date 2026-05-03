@@ -25,4 +25,10 @@ export const env = {
   get ADMIN_EMAILS(): string {
     return required("ADMIN_EMAILS");
   },
+  get CRON_SECRET(): string {
+    return required("CRON_SECRET");
+  },
+  get SUPABASE_SERVICE_ROLE_KEY(): string {
+    return required("SUPABASE_SERVICE_ROLE_KEY");
+  },
 } as const;

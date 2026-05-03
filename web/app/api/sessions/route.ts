@@ -44,9 +44,14 @@ export async function POST(req: NextRequest) {
     .select("id, start_time")
     .single();
 
-  // Concurrent dup that slipped past the maybeSingle() check raises 23505 on the
-  // sessions_client_id_idx unique partial index. Re-select and return that row.
+  // 23505 has two flavours here:
+  //   sessions_client_id_idx           → same rider re-tap; return existing row (Rule 12 idempotency).
+  //   sessions_one_active_per_horse_idx → different rider, horse already active; surface 409.
   if (insert.error?.code === "23505") {
+    const errMsg = `${insert.error.message ?? ""} ${insert.error.details ?? ""}`;
+    if (errMsg.includes("sessions_one_active_per_horse_idx")) {
+      return NextResponse.json({ error: "horse_already_active" }, { status: 409 });
+    }
     const retry = await supabase
       .from("sessions")
       .select("id, start_time")

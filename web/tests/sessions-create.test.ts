@@ -137,4 +137,22 @@ describe("POST /api/sessions", () => {
     const res = await POST(fakeReq(validBody));
     expect(res.status).toBe(403);
   });
+
+  it("returns 409 when another rider already has this horse active", async () => {
+    insertReturn = {
+      data: null,
+      error: {
+        code: "23505",
+        message:
+          'duplicate key value violates unique constraint "sessions_one_active_per_horse_idx"',
+      },
+    };
+    getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
+    const { POST } = await import("@/app/api/sessions/route");
+
+    const res = await POST(fakeReq(validBody));
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("horse_already_active");
+  });
 });
