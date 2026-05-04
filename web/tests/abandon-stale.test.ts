@@ -10,26 +10,29 @@ beforeAll(() => {
   process.env.CRON_SECRET = "test-cron-secret";
 });
 
-const updateSpy = vi.fn<(...args: unknown[]) => void>();
+const sessionsUpdateSpy = vi.fn<(...args: unknown[]) => void>();
+const jobsUpdateSpy = vi.fn<(...args: unknown[]) => void>();
 
 type UpdateReturn = { data: Array<{ id: string }> | null; error: { code?: string; message?: string } | null };
 
-let updateReturn: UpdateReturn = { data: [], error: null };
+let sessionsReturn: UpdateReturn = { data: [], error: null };
+let jobsReturn: UpdateReturn = { data: [], error: null };
 
 function buildClient() {
   return {
-    from: vi.fn(() => ({
+    from: (tableName: string) => ({
       update: (patch: unknown) => {
-        updateSpy(patch);
+        const isSessions = tableName === "sessions";
+        (isSessions ? sessionsUpdateSpy : jobsUpdateSpy)(patch);
         return {
           eq: () => ({
             lt: () => ({
-              select: async () => updateReturn,
+              select: async () => (isSessions ? sessionsReturn : jobsReturn),
             }),
           }),
         };
       },
-    })),
+    }),
   };
 }
 
@@ -37,9 +40,14 @@ vi.mock("@/lib/auth/service-role", () => ({
   createServiceRoleClient: () => buildClient(),
 }));
 
+// Backwards-compatible alias for older test cases that asserted on the single
+// updateSpy. The legacy spy now points at the sessions update only.
+const updateSpy = sessionsUpdateSpy;
+
 afterEach(() => {
   vi.clearAllMocks();
-  updateReturn = { data: [], error: null };
+  sessionsReturn = { data: [], error: null };
+  jobsReturn = { data: [], error: null };
 });
 
 function fakeReq(headers: Record<string, string>): NextRequest {
@@ -64,7 +72,7 @@ describe("GET /api/cron/abandon-stale", () => {
   });
 
   it("returns 200 with abandoned=0 when nothing is stale", async () => {
-    updateReturn = { data: [], error: null };
+    sessionsReturn = { data: [], error: null };
     const { GET } = await import("@/app/api/cron/abandon-stale/route");
     const res = await GET(fakeReq({ authorization: "Bearer test-cron-secret" }));
     expect(res.status).toBe(200);
@@ -77,7 +85,7 @@ describe("GET /api/cron/abandon-stale", () => {
   });
 
   it("returns 200 with abandoned=N when N rows match", async () => {
-    updateReturn = {
+    sessionsReturn = {
       data: [
         { id: "11111111-1111-4111-8111-111111111111" },
         { id: "22222222-2222-4222-8222-222222222222" },
@@ -92,9 +100,29 @@ describe("GET /api/cron/abandon-stale", () => {
   });
 
   it("returns 500 on Supabase error", async () => {
-    updateReturn = { data: null, error: { code: "42501", message: "rls" } };
+    sessionsReturn = { data: null, error: { code: "42501", message: "rls" } };
     const { GET } = await import("@/app/api/cron/abandon-stale/route");
     const res = await GET(fakeReq({ authorization: "Bearer test-cron-secret" }));
     expect(res.status).toBe(500);
+  });
+
+  it("resets stuck-running compute_jobs older than 5 min", async () => {
+    sessionsReturn = { data: [], error: null };
+    jobsReturn = {
+      data: [{ id: "33333333-3333-4333-8333-333333333333" }],
+      error: null,
+    };
+    const { GET } = await import("@/app/api/cron/abandon-stale/route");
+    const res = await GET(fakeReq({ authorization: "Bearer test-cron-secret" }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { abandoned: number; jobs_reset: number };
+    expect(json.jobs_reset).toBe(1);
+    expect(jobsUpdateSpy).toHaveBeenCalledTimes(1);
+    const patch = jobsUpdateSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.status).toBe("queued");
+    expect(patch.last_error).toBe("stuck_running_reset");
+    // attempts is intentionally NOT in the patch — the original retry budget
+    // applies, so the reset must not re-increment.
+    expect(patch.attempts).toBeUndefined();
   });
 });

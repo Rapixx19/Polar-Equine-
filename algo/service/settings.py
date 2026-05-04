@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="forbid")
 
     algo_bearer_token: str
+    supabase_url: str
+    supabase_service_role_key: str
 
 
 settings = Settings()

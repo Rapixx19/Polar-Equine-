@@ -11,7 +11,7 @@ def test_health_with_valid_bearer_returns_ok(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["algo_version"] == "0.2.0"
+    assert body["algo_version"] == "0.3.0"
 
 
 def test_health_without_bearer_returns_401(client: TestClient) -> None:

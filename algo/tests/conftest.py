@@ -2,6 +2,8 @@ import os
 
 TEST_TOKEN = "test-bearer-token-not-secret"
 os.environ.setdefault("ALGO_BEARER_TOKEN", TEST_TOKEN)
+os.environ.setdefault("SUPABASE_URL", "http://supabase.test")
+os.environ.setdefault("SUPABASE_SERVICE_ROLE_KEY", "test-service-role-not-secret")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
