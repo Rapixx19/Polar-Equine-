@@ -45,3 +45,4 @@ proof/
 
 # Uploads / scratch
 *.zip
+.vercel
