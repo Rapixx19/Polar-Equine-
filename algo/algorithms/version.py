@@ -1,1 +1,1 @@
-algo_version: str = "0.1.0"
+algo_version: str = "0.2.0"
