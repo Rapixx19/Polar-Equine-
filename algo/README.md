@@ -25,11 +25,10 @@ uv run uvicorn service.main:app --port 8787 --reload
 
 Smoke test:
 ```bash
-curl -i http://localhost:8787/health -H "Authorization: Bearer $ALGO_BEARER_TOKEN"
-# → 200 {"status":"ok","algo_version":"0.3.0"}
-
 curl -i http://localhost:8787/health
-# → 401 {"detail":"invalid bearer"}
+# → 200 {"status":"ok","algo_version":"0.3.0"}
+# /health is intentionally public so Railway/uptime probes can liveness-check
+# without a token. Compute endpoints stay bearer-protected.
 
 # /compute (Slice 10): pulls samples from Supabase, writes session_metrics.
 curl -s http://localhost:8787/compute \
