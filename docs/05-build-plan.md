@@ -150,7 +150,7 @@ Polar-Equine-/
 **Done when:**
 - Two integration tests pass:
   1. Create + end happy path
-  2. Duplicate idempotency key returns 409, not 500
+  2. Duplicate idempotency key returns 200 OK with the same session row (Rule 12), not 500
 
 **Kill switch:** None needed — straightforward CRUD.
 

@@ -33,15 +33,17 @@ comment on column horses.stable_id is 'Optional grouping for multi-stable deploy
 -- RIDER PROFILES (Supabase auth.users + extra fields)
 -- =============================================================
 create table rider_profiles (
-  id              uuid primary key references auth.users(id) on delete cascade,
-  display_name    text not null,
-  is_admin        boolean default false,
-  preferred_horse_id uuid references horses(id),
-  total_sessions  int default 0,
-  created_at      timestamptz default now()
+  id                  uuid primary key references auth.users(id) on delete cascade,
+  display_name        text not null,
+  is_admin            boolean default false,
+  preferred_horse_id  uuid references horses(id),
+  total_sessions      int default 0,
+  consented_at        timestamptz,
+  created_at          timestamptz default now()
 );
 
 comment on table rider_profiles is 'Extends auth.users with rider-specific fields';
+comment on column rider_profiles.consented_at is 'IRB hedge: timestamp the rider ticked the consent checkbox at magic-link sign-up (Slice 3)';
 
 -- =============================================================
 -- HORSE-RIDER PERMISSIONS

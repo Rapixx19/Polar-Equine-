@@ -30,19 +30,49 @@ curl -i http://localhost:3000/api/smoke
 ```
 web/
 ├── app/
-│   ├── (auth)/page.tsx              # placeholder welcome (Slice 3 replaces)
+│   ├── (auth)/page.tsx              # welcome screen (email + consent)
+│   ├── (auth)/auth/sent/page.tsx    # "check your inbox" + iPhone Bluefy hint
+│   ├── (auth)/auth/callback/route.ts # Route Handler — exchanges magic-link code → session cookies
+│   ├── (auth)/auth/provision/page.tsx # display-name capture for new riders
+│   ├── (auth)/auth/error/page.tsx   # expired / invalid link
+│   ├── (rider)/home/page.tsx        # rider home — activity tile picker
+│   ├── (rider)/start/horse/page.tsx # RLS-filtered horse picker
+│   ├── (rider)/session/new/page.tsx # combined connect + record + end
+│   ├── (rider)/session/[id]/saved/page.tsx # post-session confirmation
+│   ├── (rider)/ble-test/page.tsx    # BLE smoke/dev page — Android Chrome only for now
+│   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
+│   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id; 409 on cross-rider horse conflict)
+│   ├── api/sessions/[id]/route.ts   # PATCH end / notes
+│   ├── api/ingest/samples/route.ts  # POST HR samples → samples_hr (pre-flight 404/403/409 + last_ingest_at heartbeat)
+│   ├── api/cron/abandon-stale/route.ts # GET — marks active sessions idle >12h as abandoned (CRON_SECRET-protected)
 │   ├── api/smoke/route.ts           # web → algo bearer round-trip
 │   └── layout.tsx                   # next-app default
+├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
+├── components/ble/                  # PairButton, ConnectionStatus, UnsupportedBanner, RecordingControls, BleTestPanel
+├── components/session/              # ActivityTile, HorseTile, SessionRecorder
 ├── lib/
 │   ├── api-client.ts                # algoFetch — adds bearer header
-│   └── env.ts                       # lazy env-var validation
+│   ├── api/session-helpers.ts       # zod schemas shared by sessions routes
+│   ├── api/ingest-validation.ts     # zod schema for /api/ingest/samples wire format
+│   ├── auth/{server,browser,admins,service-role}.ts # Supabase ssr clients + admin allow-list + cron service-role client
+│   ├── ble/{hr-codec,connection}.ts # 0x2A37 decoder + Web Bluetooth wrapper
+│   ├── ble/batcher.ts               # 2s in-memory HR batcher (IndexedDB queue = Slice 18)
+│   ├── ble/use-ingest-session.ts    # React hook: session lifecycle + batcher orchestration
+│   ├── env.ts                       # lazy env-var validation
+│   ├── activities.ts                # 7-type activity tuple (single source of truth)
+│   ├── horses/server.ts             # RLS-scoped horses fetch helper
+│   ├── sessions/saved-summary.ts    # pure-fn guards for /session/[id]/saved
+│   └── supabase/types.ts            # generated DB types — regenerate after every migration
+├── proxy.ts                         # Next 16 proxy — refreshes Supabase session each request
 ├── public/
 │   ├── manifest.json                # PWA manifest (icons stubbed)
 │   └── sw.js                        # Service Worker stub (full SW = Slice 18)
-├── supabase/                        # local dev DB (slice 2+)
-│   └── migrations/                  # 001-*.sql land here next slice
+├── supabase/                        # local dev DB + migrations
+│   └── migrations/                  # 001_init.sql … 013_label_corrections.sql (Slice 8: 011/012/013 V.0.1 hardening)
 ├── tests/
-│   └── smoke.test.ts                # vitest: mocks fetch, asserts _smoke route
+│   └── *.test.ts                    # vitest: smoke + auth + sessions
+├── scripts/
+│   └── verify-slice-7.sql           # patched smoke-test verification query (Slice 7)
 ├── package.json  tsconfig.json  vitest.config.ts
 └── vercel.json                      # buildCommand + crons (cron filled in Slice 10)
 ```
@@ -59,6 +89,7 @@ web/
 | `npm run lint` | ESLint (Next config) |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm test` | Vitest (one-shot) |
+| `npm run gen:types` | Regenerate `lib/supabase/types.ts` from the live schema |
 | `supabase start` | Local Postgres + Studio (when in `web/`) |
 
 ---
@@ -69,12 +100,28 @@ web/
 |---|---|---|
 | `ALGO_BASE_URL` | server-only | Base URL for algo service. Local: `http://localhost:8787`. Prod: `https://algo.lafattoria.app` |
 | `ALGO_BEARER_TOKEN` | server-only | Shared secret with algo. Generated once in Slice 1 — stored in 1Password |
-| `NEXT_PUBLIC_SUPABASE_URL` | client+server | Slice 2 |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client+server | Slice 2 |
-| `SUPABASE_SERVICE_ROLE_KEY` | server-only | Slice 2 (admin routes only) |
+| `NEXT_PUBLIC_SUPABASE_URL` | client+server | Slice 3 — Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client+server | Slice 3 — Supabase anon key |
+| `NEXT_PUBLIC_APP_URL` | client+server | Slice 3 — origin used for magic-link `emailRedirectTo` |
+| `ADMIN_EMAILS` | server-only | Slice 3 — comma-separated admin allow-list |
+| `SUPABASE_SERVICE_ROLE_KEY` | server-only | Slice 15+ (admin routes only) |
 | `CRON_SECRET` | server-only | Slice 10 (Rule 14 — required header on `/api/cron/*`) |
 
 `.env.local` is gitignored. Vercel env vars are set in the Vercel dashboard.
+
+---
+
+## After every migration
+
+Regenerate the typed client so server routes pick up new tables/columns:
+
+```bash
+npm run gen:types
+```
+
+(Or, when working through Claude Code with the Supabase MCP enabled, ask Claude to call `mcp__supabase__generate_typescript_types`.)
+
+Commit `lib/supabase/types.ts` alongside the migration file. CI will fail typecheck if they drift.
 
 ---
 
