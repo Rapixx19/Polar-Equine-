@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 export function EmailPasswordForm() {
@@ -25,16 +26,7 @@ export function EmailPasswordForm() {
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as {
-          error?: string;
-        };
-        if (data.error === "email_confirmation_required") {
-          setError(
-            "Email confirmation is enabled. Disable it in Supabase Auth settings.",
-          );
-        } else {
-          setError("Couldn't sign in. Check email and password.");
-        }
+        setError("Couldn't sign in. Check email and password.");
         setSubmitting(false);
         return;
       }
@@ -99,8 +91,19 @@ export function EmailPasswordForm() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <p className="text-xs text-stone-500">
-        New here? Just enter an email and password — your account is created on
-        first sign-in.
+        Don&apos;t have an account yet? Accounts are created by the study admin
+        — reach out and we&apos;ll set you up.
+      </p>
+
+      <p className="text-xs text-stone-500">
+        Forgot your password?{" "}
+        <Link
+          href="/auth/forgot"
+          className="underline underline-offset-2 hover:text-stone-700"
+        >
+          Reset it
+        </Link>
+        .
       </p>
     </form>
   );
