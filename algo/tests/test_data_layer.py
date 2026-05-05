@@ -233,3 +233,54 @@ def test_filter_hr_for_stats() -> None:
     kept, n_dropped = data.filter_hr_for_stats(arr)
     assert list(kept) == [35.0, 80.0, 120.0, 200.0]
     assert n_dropped == 3
+
+
+def _row(**overrides: object) -> SessionMetricsRow:
+    base: dict[str, object] = {
+        "session_id": "sid",
+        "duration_s": 300,
+        "hr_avg": 35.0,
+        "hr_peak": 42,
+        "hr_min": 30,
+        "hr_sd": 2.5,
+        "rmssd_ms": 33.0,
+        "sdnn_ms": 41.0,
+        "pnn50_pct": 12.0,
+        "pnn20_pct": 24.0,
+        "rr_cleaning_quality": 1.0,
+        "hrv_completeness_quality": 1.0,
+        "algo_version": "0.5.0",
+    }
+    base.update(overrides)
+    return SessionMetricsRow(**base)  # type: ignore[arg-type]
+
+
+def test_write_recovery_three_state_none_preserved(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Rest session: tau_s=None, fit_quality=None — both serialize as NULL distinctly from 0.0."""
+    table = _MockTable()
+    _patch_client(monkeypatch, table)
+    data.write_session_metrics(_row(recovery_tau_s=None, recovery_fit_quality=None))
+    payload = table.insert_calls[0]
+    assert payload["recovery_tau_s"] is None
+    assert payload["recovery_fit_quality"] is None
+
+
+def test_write_recovery_three_state_failed_serializes_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Attempted-but-failed: tau_s=None, fit_quality=0.0 — must NOT collapse to NULL."""
+    table = _MockTable()
+    _patch_client(monkeypatch, table)
+    data.write_session_metrics(_row(recovery_tau_s=None, recovery_fit_quality=0.0))
+    payload = table.insert_calls[0]
+    assert payload["recovery_tau_s"] is None
+    assert payload["recovery_fit_quality"] == 0.0  # critical: NOT None
+    assert payload["recovery_fit_quality"] is not None
+
+
+def test_write_recovery_three_state_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Successful fit: both columns populated."""
+    table = _MockTable()
+    _patch_client(monkeypatch, table)
+    data.write_session_metrics(_row(recovery_tau_s=82.5, recovery_fit_quality=0.93))
+    payload = table.insert_calls[0]
+    assert payload["recovery_tau_s"] == 82.5
+    assert payload["recovery_fit_quality"] == 0.93

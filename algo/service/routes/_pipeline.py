@@ -12,7 +12,7 @@ import structlog
 from fastapi import HTTPException
 from numpy.typing import NDArray
 
-from algorithms import hrv_metrics, rr_cleaning, trimp_zones
+from algorithms import hrv_metrics, recovery_tau, rr_cleaning, trimp_zones
 from algorithms.version import algo_version
 from service.data import (
     filter_hr_for_stats,
@@ -20,7 +20,7 @@ from service.data import (
     set_metrics_status,
     write_session_metrics,
 )
-from service.data_types import SessionMetricsRow, SessionRow
+from service.data_types import REST_ACTIVITIES, SamplesHR, SessionMetricsRow, SessionRow
 from service.models import ComputeResponse
 
 log = structlog.get_logger()
@@ -55,12 +55,16 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
                 quality=workload.quality,
             )
 
+        recovery_tau_s, recovery_fit_quality = _compute_recovery(session, samples)
+
         row = _compose_metrics_row(
             session=session,
             cleaned=cleaned,
             metrics=metrics,
             hr_kept=hr_kept,
             workload=workload,
+            recovery_tau_s=recovery_tau_s,
+            recovery_fit_quality=recovery_fit_quality,
             duration_s=_duration_s(session),
         )
         try:
@@ -84,12 +88,27 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
     )
 
 
+def _compute_recovery(
+    session: SessionRow, samples: SamplesHR
+) -> tuple[float | None, float | None]:
+    """Three-state: rest → (None, None); else → fit() and surface tau_s + quality."""
+    if session.activity_type in REST_ACTIVITIES:
+        log.info("recovery.skipped_rest", session_id=session.id, activity=session.activity_type)
+        return None, None
+    result = recovery_tau.fit(samples.hr_bpm, samples.timestamp_ms)
+    if result.reason != "ok":
+        log.warning("recovery.fit_failed", session_id=session.id, reason=result.reason)
+    return result.tau_s, result.fit_quality
+
+
 def _compose_metrics_row(
     session: SessionRow,
     cleaned: rr_cleaning.CleaningResult,
     metrics: hrv_metrics.HRVResult,
     hr_kept: NDArray[np.float64],
     workload: trimp_zones.WorkloadResult,
+    recovery_tau_s: float | None,
+    recovery_fit_quality: float | None,
     duration_s: int,
 ) -> SessionMetricsRow:
     return SessionMetricsRow(
@@ -114,6 +133,8 @@ def _compose_metrics_row(
         time_z5_s=workload.time_z5_s,
         avg_hr_pct=workload.avg_hr_pct,
         workload_quality=workload.quality,
+        recovery_tau_s=recovery_tau_s,
+        recovery_fit_quality=recovery_fit_quality,
     )
 
 

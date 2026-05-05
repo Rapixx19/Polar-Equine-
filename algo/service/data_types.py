@@ -14,6 +14,10 @@ from numpy.typing import NDArray
 
 MetricsStatus = Literal["pending", "computing", "complete", "failed"]
 
+# Slice 11.5: rest sessions skip recovery τ. activity_type is free-form text in
+# V0.0 (V1 will introduce a structured taxonomy), so this is a closed set.
+REST_ACTIVITIES = frozenset({"rest_pasture", "rest_stall", "rest_groundwork"})
+
 
 @dataclass(frozen=True)
 class SessionRow:
@@ -56,3 +60,7 @@ class SessionMetricsRow:
     time_z5_s: int | None = None
     avg_hr_pct: float | None = None
     workload_quality: float | None = None
+    # Slice 11.5 — recovery τ. Three-state: NULL = not attempted (rest);
+    # 0.0 = attempted-and-failed; (0,1] = R²-style. Migration 016.
+    recovery_tau_s: float | None = None
+    recovery_fit_quality: float | None = None
