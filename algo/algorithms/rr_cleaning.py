@@ -19,7 +19,7 @@ from algorithms.version import algo_version
 
 @dataclass(frozen=True)
 class CleaningConfig:
-    rr_min_ms: int = 800
+    rr_min_ms: int = 300
     rr_max_ms: int = 3000
     iterative: bool = True
     flag_av_block: bool = True

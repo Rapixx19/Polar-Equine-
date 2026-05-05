@@ -26,7 +26,7 @@ uv run uvicorn service.main:app --port 8787 --reload
 Smoke test:
 ```bash
 curl -i http://localhost:8787/health
-# → 200 {"status":"ok","algo_version":"0.3.0"}
+# → 200 {"status":"ok","algo_version":"0.3.1"}
 # /health is intentionally public so Railway/uptime probes can liveness-check
 # without a token. Compute endpoints stay bearer-protected.
 
@@ -35,7 +35,7 @@ curl -s http://localhost:8787/compute \
   -H "Authorization: Bearer $ALGO_BEARER_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"session_id":"<uuid>"}' | jq
-# → 200 {"status":"complete","metrics_id":"<uuid>","label_count":0,"algo_version":"0.3.0"}
+# → 200 {"status":"complete","metrics_id":"<uuid>","label_count":0,"algo_version":"0.3.1"}
 # → 409 if metrics_status IN ('complete','computing') — admin escape hatch is /recompute
 # → 422 if <30 RR samples for this session
 

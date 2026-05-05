@@ -182,7 +182,7 @@ def test_write_session_metrics_uses_strict_insert(monkeypatch: pytest.MonkeyPatc
         pnn20_pct=24.0,
         rr_cleaning_quality=1.0,
         hrv_completeness_quality=1.0,
-        algo_version="0.3.0",
+        algo_version="0.3.1",
     )
     data.write_session_metrics(row)
     assert len(table.insert_calls) == 1
@@ -208,7 +208,7 @@ def test_write_session_metrics_translates_pk_violation(
         pnn20_pct=0.0,
         rr_cleaning_quality=0.0,
         hrv_completeness_quality=0.0,
-        algo_version="0.3.0",
+        algo_version="0.3.1",
     )
     with pytest.raises(ValueError, match="metrics_already_exist"):
         data.write_session_metrics(row)

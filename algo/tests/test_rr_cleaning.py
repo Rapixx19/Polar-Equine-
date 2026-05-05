@@ -44,16 +44,16 @@ def test_clean_preserves_av_block_segments() -> None:
 def test_clean_clamps_out_of_range() -> None:
     rng = np.random.default_rng(11)
     rr = 1000.0 + rng.normal(0.0, 5.0, size=80)
-    rr[10] = 500.0
+    rr[10] = 200.0
     rr[40] = 4000.0
     result = clean(rr)
-    assert result.rr_clean_ms[10] >= 800.0
+    assert result.rr_clean_ms[10] >= 300.0
     assert result.rr_clean_ms[40] <= 3000.0
     assert result.n_corrected >= 2
 
 
 def test_clean_quality_floor_zero() -> None:
-    rr = np.full(60, 700.0)
+    rr = np.full(60, 200.0)
     rr[0] = 1000.0
     result = clean(rr)
     assert result.quality == pytest.approx(0.0, abs=1e-9) or result.quality < 0.05
