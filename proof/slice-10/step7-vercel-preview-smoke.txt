@@ -1,0 +1,43 @@
+# Slice 10 — Step 7 Vercel preview smoke
+Date: 2026-05-04
+Preview URL: https://polar-equine-gsqo-qv8tojx1r-vecterais-projects.vercel.app
+Branch: slice-10-compute-runner @ 465fcad
+Vercel project: polar-equine-gsqo (prj_Y9MEmfggYzmMzf1qVxuZTk2i7MXz)
+Railway algo URL: https://polar-equine-production.up.railway.app
+
+## Web → Railway bearer round-trip (/api/smoke)
+HTTP 200
+{"ok":true,"algo":{"status":"ok","algo_version":"0.3.0"}}
+
+→ Confirms ALGO_BASE_URL + ALGO_BEARER_TOKEN round-trip Vercel → Railway.
+
+## Cron auth gate (/api/cron/compute-runner, no Authorization header)
+HTTP 401
+{"error":"unauthorized"}
+
+## Cron empty-queue path (/api/cron/compute-runner, Bearer CRON_SECRET)
+HTTP 200
+{"picked":0,"dispatched":0,"failed":0}
+
+→ Confirms CRON_SECRET matches and the runner gracefully no-ops when no jobs are queued.
+
+## Cron abandon-stale (Bearer CRON_SECRET)
+HTTP 200
+{"abandoned":0,"jobs_reset":0}
+
+→ Confirms abandon-stale extension (compute_jobs stuck-running reset) ships and runs.
+
+## What this does NOT prove (still band-gated for Step 12)
+- /api/sessions/[id] PATCH end → enqueue compute_jobs row (needs a real session)
+- One full cron tick dispatching to algo /compute on a real session (needs ≥30 RR samples in samples_hr)
+- session_metrics row appearing with HRV + algo_version='0.3.0' + quality columns
+- Lost-response 409 terminal-success path (manual reset of completed compute_jobs row)
+- /recompute manual smoke
+
+These all require a live H10 chest-strap session per the HARD RULE in the plan.
+
+## Cron schedule note
+The `* * * * *` cron in vercel.json is registered on this preview deploy but does NOT auto-fire
+on previews — Vercel cron only fires on the latest **production** deploy. This is fine: the slice
+is band-gated to "[code-complete, smoke-blocked]" until the strap arrives. After Step 12 passes
+on a real session, merging to main promotes the cron to production.

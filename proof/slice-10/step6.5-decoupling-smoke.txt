@@ -1,0 +1,71 @@
+# Slice 10 — Step 6.5 Algo-first decoupling smoke
+Date: 2026-05-04T13:22:09Z
+Railway URL: https://polar-equine-production.up.railway.app
+
+## /health (public)
+HTTP/2 200 
+x-railway-cdn-edge: fastly/cache-bgy-lime1210036-BGY
+content-type: application/json
+date: Mon, 04 May 2026 13:22:09 GMT
+server: railway-edge
+x-railway-edge: railway/europe-west4-drams3a
+x-railway-request-id: jGWingcSRXistsMeYqdHTg
+x-cache: MISS
+x-cache-hits: 0
+x-served-by: cache-bgy-lime1210036-BGY
+
+## /compute without bearer → 401
+HTTP/2 401 
+x-railway-cdn-edge: fastly/cache-bgy-lime1210026-BGY
+content-type: application/json
+date: Mon, 04 May 2026 13:22:11 GMT
+server: railway-edge
+x-railway-edge: railway/europe-west4-drams3a
+x-railway-request-id: cy6L-uEnQQ---MLDYqdHTg
+x-cache: MISS
+x-cache-hits: 0
+x-served-by: cache-bgy-lime1210026-BGY
+content-length: 27
+
+
+## /compute with bearer + invalid UUID v4 → 422
+HTTP/2 422 
+x-railway-cdn-edge: fastly/cache-bgy-lime1210055-BGY
+content-type: application/json
+date: Mon, 04 May 2026 13:22:11 GMT
+server: railway-edge
+x-railway-edge: railway/europe-west4-drams3a
+x-railway-request-id: wMIhbhwHQl-7_xpWjUJq2g
+x-cache: MISS
+x-cache-hits: 0
+x-served-by: cache-bgy-lime1210055-BGY
+content-length: 209
+
+
+## /compute with bearer + valid UUID, no session → 404 session_not_found
+HTTP/2 404 
+x-railway-cdn-edge: fastly/cache-bgy-lime1210022-BGY
+content-type: application/json
+date: Mon, 04 May 2026 13:22:12 GMT
+server: railway-edge
+x-railway-edge: railway/europe-west4-drams3a
+x-railway-request-id: BxETsnfsSDiheo2o63j4Ww
+x-cache: MISS
+x-cache-hits: 0
+x-served-by: cache-bgy-lime1210022-BGY
+content-length: 30
+
+
+## /recompute with bearer + valid UUID, no session → 404 session_not_found
+HTTP/2 404 
+x-railway-cdn-edge: fastly/cache-bgy-lime1210034-BGY
+content-type: application/json
+date: Mon, 04 May 2026 13:22:12 GMT
+server: railway-edge
+x-railway-edge: railway/europe-west4-drams3a
+x-railway-request-id: iAJFm23WTsq4CRn521mRUA
+x-cache: MISS
+x-cache-hits: 0
+x-served-by: cache-bgy-lime1210034-BGY
+content-length: 30
+

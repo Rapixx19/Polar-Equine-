@@ -1,0 +1,80 @@
+Slice 10 — Synthetic-data E2E smoke
+====================================
+Date: 2026-05-04
+Branch: slice-10-compute-runner
+Preview: polar-equine-gsqo-git-slice-10-comput-1e4aff-vecterais-projects.vercel.app
+Algo: Railway production (algo_version 0.3.0)
+
+NOTE: This is a synthetic-data run — band was not yet usable (no electrode wetting).
+Per plan HARD RULE, real H10 chest-strap session is still required before merging to main.
+This artefact only proves the wiring (enqueue → cron → algo → metrics → flip) is correct.
+
+Setup
+-----
+session_id      a3f6e541-44f1-4393-832e-626b52689a65
+compute_job_id  812f6ea3-8912-4f10-ae68-d1637a399e8c
+rider_id        edca6330-5a84-41c7-b17c-71cd220143ed (Ferdinand)
+horse_id        430946cd-f560-436b-8773-0516f7ff0dbe
+samples_hr      60 rows, 1 Hz, RR = 800 ± 30 ms sin wave, HR ~75 bpm, contact=true
+
+Cron invocation (Vercel deployment-protection bypass via `vercel curl`)
+----------------------------------------------------------------------
+$ vercel curl /api/cron/compute-runner \
+    --deployment polar-equine-gsqo-git-slice-10-comput-1e4aff-vecterais-projects.vercel.app \
+    -- -H "Authorization: Bearer $CRON_SECRET"
+→ HTTP 200 {"picked":1,"dispatched":1,"failed":0}
+
+Database state after run
+------------------------
+sessions.metrics_status      complete
+compute_jobs.status          succeeded
+compute_jobs.attempts        1
+compute_jobs.last_error      NULL
+
+session_metrics row
+-------------------
+session_id                 a3f6e541-44f1-4393-832e-626b52689a65
+duration_s                 60
+hr_avg                     75
+hr_peak                    78
+hr_min                     72
+hr_sd                      2.13128
+rmssd_ms                   2.98044
+sdnn_ms                    10.8488
+pnn50_pct                  0
+pnn20_pct                  0
+rr_cleaning_quality        0.533333
+hrv_completeness_quality   1.0
+algo_version               0.3.0
+computed_at                2026-05-05T08:25:29.645513+00:00
+trimp_banister             NULL  (stub for Slice 11)
+recovery_tau_s             NULL  (stub for Slice 11.5)
+time_walk/trot/canter/...  NULL  (stub for Slice 13)
+jump_count                 NULL  (stub for Slice 13)
+
+Interpretation
+--------------
+- algo_version='0.3.0' confirms the new build is what wrote the row.
+- hrv_completeness_quality=1.0 → ≥60 clean beats (Task Force short-term window met).
+- rr_cleaning_quality=0.533 → ~47% of beats triggered Lipponen-Tarvainen correction.
+  Expected: synthetic sin-wave RR is too regular and triggers the artefact detector.
+  Real H10 data should land closer to 0.95+. Treat this as evidence the cleaner ran,
+  not as a bug.
+- rmssd_ms=2.98 is artificially low for the same reason — sin-wave RR has no beat-to-beat
+  high-frequency component beyond the imposed 30 ms wobble.
+
+Wiring verified ✓
+- Enqueue (PATCH /api/sessions/[id] end branch → compute_jobs row)
+- Vercel cron route /api/cron/compute-runner (manual trigger; cron itself is Production-only)
+- Two-step claim (status='queued' → 'running', attempts=1)
+- Algo dispatch with bearer token
+- Algo /compute: read_session, read_hr_samples (paginated), filter_hr_for_stats,
+  rr_cleaning, hrv_metrics.compute, write_session_metrics (strict insert),
+  set_metrics_status('complete')
+- Cron runner outcome handler set compute_jobs.status='succeeded'
+
+Outstanding for Phase 3 closure
+-------------------------------
+- Real H10 chest-strap session captured via /ble-test (skin contact required → wet electrodes).
+- Re-run smoke; expect rr_cleaning_quality ≥ 0.95 and rmssd in 20–80 ms range.
+- Then save the real-data artefact alongside this one and merge.
