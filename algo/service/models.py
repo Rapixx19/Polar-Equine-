@@ -1,29 +1,35 @@
 """Pydantic request/response models for the algo service.
 
-`extra='forbid'` everywhere (Rule 9 + algo style guide). RR bounds match the
-physiological clamps in algorithms.rr_cleaning.CleaningConfig defaults.
+Slice 10: ``/compute`` and ``/recompute`` take ``{ session_id }`` only.
+Slice 9's ``{ rr_ms: int[] }`` shape is gone (Rule 13: response shape change
+bumps algo_version to 0.3.0).
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from typing import Literal
+
+from pydantic import UUID4, BaseModel, ConfigDict, Field
 
 
 class ComputeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    rr_ms: list[int] = Field(..., min_length=30, max_length=50_000)
+    session_id: UUID4
+
+
+class RecomputeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    session_id: UUID4
 
 
 class ComputeResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    rmssd_ms: float
-    sdnn_ms: float
-    pnn50_pct: float
-    pnn20_pct: float
-    mean_rr_ms: float
-    n_beats: int
-    rr_cleaning_quality: float
-    hrv_completeness_quality: float
+    status: Literal["complete"]
+    metrics_id: str
+    label_count: int = Field(
+        0, description="Stub for Slice 13 gait detection; always 0 in V0.0"
+    )
     algo_version: str

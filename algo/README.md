@@ -25,21 +25,29 @@ uv run uvicorn service.main:app --port 8787 --reload
 
 Smoke test:
 ```bash
-curl -i http://localhost:8787/health -H "Authorization: Bearer $ALGO_BEARER_TOKEN"
-# → 200 {"status":"ok","algo_version":"0.2.0"}
-
 curl -i http://localhost:8787/health
-# → 401 {"detail":"invalid bearer"}
+# → 200 {"status":"ok","algo_version":"0.3.1"}
+# /health is intentionally public so Railway/uptime probes can liveness-check
+# without a token. Compute endpoints stay bearer-protected.
 
-# /compute (Slice 9): synthetic-only mode — body is a raw RR list.
-# Slice 10 swaps this to {"session_id": "<uuid>"} once the algo can read samples_hr.
+# /compute (Slice 10): pulls samples from Supabase, writes session_metrics.
 curl -s http://localhost:8787/compute \
   -H "Authorization: Bearer $ALGO_BEARER_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"rr_ms":[1900,2050,1980,2100,...]}' | jq
-# → 200 {rmssd_ms, sdnn_ms, pnn50_pct, pnn20_pct, mean_rr_ms, n_beats,
-#         rr_cleaning_quality, hrv_completeness_quality, algo_version}
+  -d '{"session_id":"<uuid>"}' | jq
+# → 200 {"status":"complete","metrics_id":"<uuid>","label_count":0,"algo_version":"0.3.1"}
+# → 409 if metrics_status IN ('complete','computing') — admin escape hatch is /recompute
+# → 422 if <30 RR samples for this session
+
+# /recompute: deletes the existing session_metrics row first, then runs compute.
+curl -s http://localhost:8787/recompute \
+  -H "Authorization: Bearer $ALGO_BEARER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"<uuid>"}' | jq
 ```
+
+Required env vars are documented in `docs/shared/01-environment-variables.md` (single
+source of truth — do not duplicate the list here).
 
 ---
 

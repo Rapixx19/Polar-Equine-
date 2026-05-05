@@ -3,6 +3,7 @@
   "buildCommand": "npm run build",
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/cron/abandon-stale", "schedule": "0 */6 * * *" }
+    { "path": "/api/cron/abandon-stale", "schedule": "0 */6 * * *" },
+    { "path": "/api/cron/compute-runner", "schedule": "* * * * *" }
   ]
 }

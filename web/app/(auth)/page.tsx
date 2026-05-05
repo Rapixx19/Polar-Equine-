@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
-import { EmailInput } from "@/components/auth/EmailInput";
+import { EmailPasswordForm } from "@/components/auth/EmailPasswordForm";
 
 export default async function WelcomePage() {
   const supabase = await createServerSupabaseClient();
@@ -20,14 +20,14 @@ export default async function WelcomePage() {
 
         <h2 className="mb-3 text-2xl font-light">Welcome.</h2>
         <p className="mb-6 text-stone-600">
-          Enter your email to log in or create your account. We&apos;ll send you a magic link.
+          Enter your email and a password to sign in or create an account.
         </p>
 
-        <EmailInput />
+        <EmailPasswordForm />
 
         <p className="mt-8 text-xs leading-relaxed text-stone-500">
-          By using this app you consent to anonymized session data being used for equine
-          welfare research.
+          By using this app you consent to anonymized session data being used
+          for equine welfare research.
         </p>
       </div>
     </main>

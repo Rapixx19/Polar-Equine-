@@ -1,0 +1,92 @@
+{
+  "slice": 10,
+  "phase": 3,
+  "phase_name": "Compute pipeline",
+  "phase_closure": true,
+  "captured_at": "2026-05-05T11:13:15.017779+00:00",
+  "branch": "slice-10-compute-runner",
+  "preview_deployment": "polar-equine-gsqo-git-slice-10-comput-1e4aff-vecterais-projects.vercel.app",
+  "algo_deployment": {
+    "platform": "Railway",
+    "build": "Dockerfile",
+    "algo_version": "0.3.1"
+  },
+  "session": {
+    "session_id": "52b11d52-f325-4505-87b2-5453be31d1be",
+    "rider_id": "aae176f9-fdc9-4af8-8ade-f824b00e36a9",
+    "rider_email": "fstraehuber@gmail.com",
+    "horse_id": "430946cd-f560-436b-8773-0516f7ff0dbe",
+    "horse_name": "Hippo",
+    "duration_s": 335,
+    "samples_hr_rows": 588,
+    "sample_rate_hz": 1,
+    "rr_range_ms": [515, 670],
+    "hr_range_bpm": [95, 115],
+    "device": "Polar H10 chest strap (rider-mounted for integration smoke)"
+  },
+  "compute_job": {
+    "id": "f0aeb766-acd0-4192-8210-99c22fc2cbad",
+    "status": "succeeded",
+    "attempts": 1,
+    "last_error": null
+  },
+  "session_metrics": {
+    "session_id": "52b11d52-f325-4505-87b2-5453be31d1be",
+    "duration_s": 335,
+    "hr_avg": 106.031,
+    "hr_peak": 115,
+    "hr_min": 95,
+    "hr_sd": 4.50,
+    "rmssd_ms": 9.94,
+    "sdnn_ms": 30.12,
+    "pnn50_pct": 0.17,
+    "pnn20_pct": 4.26,
+    "rr_cleaning_quality": 0.9966,
+    "hrv_completeness_quality": 1.0000,
+    "algo_version": "0.3.1",
+    "computed_at": "2026-05-05T11:13:15.017779+00:00",
+    "stubs_for_future_slices": {
+      "trimp_banister": "Slice 11",
+      "recovery_tau_s": "Slice 11.5",
+      "time_in_gait_buckets": "Slice 13",
+      "jump_count": "Slice 13"
+    }
+  },
+  "quality_gate": {
+    "rr_cleaning_target": 0.95,
+    "rr_cleaning_actual": 0.9966,
+    "rr_cleaning_pass": true,
+    "completeness_target": 1.0,
+    "completeness_actual": 1.0000,
+    "completeness_pass": true
+  },
+  "interpretation": {
+    "rmssd_below_resting": "9.94 ms is below the typical adult resting parasympathetic range (20-80 ms); SDNN of 30.12 ms is normal. Pattern is consistent with a non-supine capture (rider standing/talking/moving while paired) rather than rest. Not a wiring or algorithm bug — real physiology.",
+    "phase_3_closure": "Real-H10 chest-strap data produced a real session_metrics row through the full Phase 3 pipeline. Build-plan HARD RULE satisfied."
+  },
+  "in_flight_hotfixes": [
+    {
+      "commit": "50bdbf1",
+      "subject": "fix(algo): widen RR cleaning bounds to 300-3000ms for human + horse",
+      "reason": "Initial bounds [800, 3000] ms rejected human RR (515-670 ms). Bumped algo_version 0.3.0 → 0.3.1."
+    },
+    {
+      "commit": "d403848",
+      "subject": "chore(algo): switch Railway build to Dockerfile",
+      "reason": "Railway railpack/mise/aqua build failed on uv@0.11.9 GitHub artifact attestation; MISE_PARANOID=false did not bypass it."
+    },
+    {
+      "commit": "0ef169e",
+      "subject": "fix(railway): wrap startCommand in sh -c for $PORT expansion",
+      "reason": "Dockerfile-mode startCommand runs in exec form; $PORT was passed literally without shell expansion."
+    }
+  ],
+  "earlier_failed_attempts": [
+    {
+      "at": "2026-05-05T10:33:47Z",
+      "outcome": "algo 422 no_valid_beats",
+      "cause": "RR floor was 800 ms; rider RR was 515-670 ms",
+      "remediation": "First hotfix (50bdbf1) above; compute_jobs row reset attempts=0, status='queued' for the retry after 0.3.1 redeployed."
+    }
+  ]
+}

@@ -545,10 +545,13 @@ export type Database = {
           hr_min: number | null
           hr_peak: number | null
           hr_sd: number | null
+          hrv_completeness_quality: number | null
           jump_count: number | null
+          pnn20_pct: number | null
           pnn50_pct: number | null
           recovery_tau_s: number | null
           rmssd_ms: number | null
+          rr_cleaning_quality: number | null
           sdnn_ms: number | null
           session_id: string
           time_canter_s: number | null
@@ -566,10 +569,13 @@ export type Database = {
           hr_min?: number | null
           hr_peak?: number | null
           hr_sd?: number | null
+          hrv_completeness_quality?: number | null
           jump_count?: number | null
+          pnn20_pct?: number | null
           pnn50_pct?: number | null
           recovery_tau_s?: number | null
           rmssd_ms?: number | null
+          rr_cleaning_quality?: number | null
           sdnn_ms?: number | null
           session_id: string
           time_canter_s?: number | null
@@ -587,10 +593,13 @@ export type Database = {
           hr_min?: number | null
           hr_peak?: number | null
           hr_sd?: number | null
+          hrv_completeness_quality?: number | null
           jump_count?: number | null
+          pnn20_pct?: number | null
           pnn50_pct?: number | null
           recovery_tau_s?: number | null
           rmssd_ms?: number | null
+          rr_cleaning_quality?: number | null
           sdnn_ms?: number | null
           session_id?: string
           time_canter_s?: number | null

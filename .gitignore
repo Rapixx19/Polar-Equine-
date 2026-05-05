@@ -40,8 +40,12 @@ Thumbs.db
 **/supabase/.branches/
 **/supabase/.temp/
 
-# Proof / scratch (per-slice evidence is for the human, not the repo)
-proof/
+# Proof / scratch — per-slice evidence is for the human, not the repo,
+# EXCEPT for thesis-grade closure artefacts (Phase boundaries, real-data smokes).
+proof/*
+!proof/slice-10/
+!proof/slice-10/*
 
 # Uploads / scratch
 *.zip
+.vercel

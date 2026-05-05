@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
+import { createServiceRoleClient } from "@/lib/auth/service-role";
 import { patchSessionBody, sessionIdParam } from "@/lib/api/session-helpers";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -55,7 +56,24 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
       console.error("session_end_failed", { code: update.error?.code, message: update.error?.message });
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
-    return NextResponse.json({ ok: true });
+
+    // Enqueue the compute job for the cron runner. Service-role is used here
+    // because compute_jobs RLS is admin-SELECT-only (migration 011); Slice 17
+    // will revisit this when the rider gains a Realtime "computing…" UI.
+    const admin = createServiceRoleClient();
+    const enqueue = await admin
+      .from("compute_jobs")
+      .insert({ session_id: id, job_type: "compute", status: "queued" });
+    if (enqueue.error) {
+      console.error("compute_job_enqueue_failed", {
+        code: enqueue.error.code,
+        message: enqueue.error.message,
+      });
+      // Session is ended; cron has nothing to drain. Surface the partial state
+      // so the client can flag it (admin can re-enqueue via /recompute).
+      return NextResponse.json({ ok: true, enqueued: false }, { status: 200 });
+    }
+    return NextResponse.json({ ok: true, enqueued: true });
   }
 
   // notes-only branch

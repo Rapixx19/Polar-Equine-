@@ -14,8 +14,9 @@ NEXT_PUBLIC_APP_NAME=La Fattoria
 # Server-only — never prefixed NEXT_PUBLIC_
 SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJI...         # bypasses RLS; admin-only ops
 ADMIN_EMAILS=admin1@example.com,admin2@example.com  # comma-separated allowlist
-ALGO_SERVICE_URL=https://algo.lafattoria.app
+ALGO_BASE_URL=https://algo.lafattoria.app
 ALGO_BEARER_TOKEN=                                # generated random 64-char string
+CRON_SECRET=                                      # bearer for /api/cron/* (Slice 8+)
 
 # Optional
 SENTRY_DSN=                                       # error tracking
@@ -44,7 +45,7 @@ SENTRY_DSN=
 
 | Web sends | To | With | Algo verifies |
 |---|---|---|---|
-| `Authorization: Bearer ${ALGO_BEARER_TOKEN}` | `${ALGO_SERVICE_URL}/compute` | HTTP POST | `req.token == ALGO_BEARER_TOKEN` |
+| `Authorization: Bearer ${ALGO_BEARER_TOKEN}` | `${ALGO_BASE_URL}/compute` | HTTP POST | `req.token == ALGO_BEARER_TOKEN` |
 
 Both `ALGO_BEARER_TOKEN` values must be **identical**. Generate once, paste into both Vercel and Railway dashboards. Rotation = generate new value, paste both, redeploy both.
 
@@ -58,7 +59,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJh...                    # local
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 SUPABASE_SERVICE_ROLE_KEY=eyJh...                        # local
 ADMIN_EMAILS=ferdinand@dev.local
-ALGO_SERVICE_URL=http://localhost:8000
+ALGO_BASE_URL=http://localhost:8000
 ALGO_BEARER_TOKEN=dev-token-not-for-prod
 ```
 

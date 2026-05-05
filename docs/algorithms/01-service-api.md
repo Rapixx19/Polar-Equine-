@@ -12,13 +12,16 @@ Run the full algorithm pipeline on a session.
 
 **Auth:** `Authorization: Bearer ${ALGO_BEARER_TOKEN}`
 **Body:** `{ "session_id": "uuid" }`
-**Response:** `{ "status": "complete", "metrics_id": "uuid", "label_count": 12 }`
+**Response:** `{ "status": "complete", "metrics_id": "uuid", "label_count": 0, "algo_version": "0.3.0" }`
 
 **Errors:**
 - `401` Unauthorized
 - `404` Session not found
-- `409` Session already computed (idempotency check)
-- `422` Insufficient data
+- `409` `metrics_status IN ('complete','computing')` — terminal-success contract: the
+  Vercel cron runner treats this as "already done" (marks the job `succeeded` without
+  touching `sessions.metrics_status`). This is the lost-response retry path: tick 1
+  algo POST succeeded but the response never returned; tick 2 sees 409 and reconciles.
+- `422` Insufficient data (<30 RR samples after server-side null filter)
 - `500` Algorithm error (logged; sessions.metrics_status='failed')
 
 ### `POST /recompute`
