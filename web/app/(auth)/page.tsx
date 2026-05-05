@@ -3,7 +3,19 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import { EmailInput } from "@/components/auth/EmailInput";
 
-export default async function WelcomePage() {
+export default async function WelcomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string; error?: string }>;
+}) {
+  const params = await searchParams;
+  if (params.error) {
+    redirect("/auth/error");
+  }
+  if (params.code) {
+    redirect(`/auth/callback?code=${encodeURIComponent(params.code)}`);
+  }
+
   const supabase = await createServerSupabaseClient();
   const user = await getUser(supabase);
   if (user) {
