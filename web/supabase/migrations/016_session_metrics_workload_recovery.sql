@@ -36,4 +36,4 @@ comment on column session_metrics.avg_hr_pct is
 comment on column session_metrics.workload_quality is
   'Slice 11: fraction of HR samples within physiological bounds [30,220] bpm. INPUT-SIDE cleanliness — distinct from recovery_fit_quality.';
 comment on column session_metrics.recovery_fit_quality is
-  'Slice 11.5: three-state R² of the exponential decay fit. NULL = not attempted (rest_* session); 0.0 = attempted but no usable decay (no peak / dropout / fit failed); (0.0, 1.0] = R² of fit. OUTPUT-SIDE model fit — distinct from workload_quality.';
+  'Slice 11.5: three-state R² of the exponential decay fit. NULL = not attempted (activity_type ∈ {stall, grass_field, transport, vet}); 0.0 = attempted but no usable decay (no peak / dropout / fit failed); (0.0, 1.0] = R² of fit. OUTPUT-SIDE model fit — distinct from workload_quality.';

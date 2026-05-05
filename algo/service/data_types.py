@@ -14,9 +14,13 @@ from numpy.typing import NDArray
 
 MetricsStatus = Literal["pending", "computing", "complete", "failed"]
 
-# Slice 11.5: rest sessions skip recovery τ. activity_type is free-form text in
-# V0.0 (V1 will introduce a structured taxonomy), so this is a closed set.
-REST_ACTIVITIES = frozenset({"rest_pasture", "rest_stall", "rest_groundwork"})
+# Slice 11.5: rest sessions skip recovery τ. Values must match the
+# ``sessions.activity_type`` CHECK constraint in migration 002. ``walker`` is
+# borderline (low-intensity locomotion, no peak/decay structure) but stays
+# OUT of the rest set — the algorithm's ``no_decay`` path handles it
+# naturally, preserving the three-state distinction between "didn't try"
+# (NULL) and "tried but no decay" (0.0). Same reasoning for ``other``.
+REST_ACTIVITIES = frozenset({"stall", "grass_field", "transport", "vet"})
 
 
 @dataclass(frozen=True)

@@ -175,14 +175,15 @@ def test_compute_happy_path(client: TestClient, patched: dict[str, Any]) -> None
     assert statuses[-1] == "complete"
 
 
-def test_compute_rest_session_writes_null_recovery(
-    client: TestClient, patched: dict[str, Any]
+@pytest.mark.parametrize("rest_activity", ["stall", "grass_field", "transport", "vet"])
+def test_compute_rest_activities_write_null_recovery(
+    client: TestClient, patched: dict[str, Any], rest_activity: str
 ) -> None:
-    """Rest sessions skip recovery entirely → both columns NULL (not 0.0)."""
+    """Each REST_ACTIVITIES value skips recovery → both columns NULL (not 0.0)."""
     sess = _session(dur_s=300)
     rest_sess = SessionRow(
         id=sess.id,
-        activity_type="rest_pasture",
+        activity_type=rest_activity,
         start_time=sess.start_time,
         end_time=sess.end_time,
         metrics_status=sess.metrics_status,
@@ -191,9 +192,31 @@ def test_compute_rest_session_writes_null_recovery(
     res = client.post("/compute", json={"session_id": rest_sess.id}, headers=_auth())
     assert res.status_code == 200, res.text
     written = patched["writes"][0]
-    # Three-state NULL branch: not attempted because the route layer skipped fit().
     assert written.recovery_tau_s is None
     assert written.recovery_fit_quality is None
+
+
+@pytest.mark.parametrize("non_rest_activity", ["walker", "other"])
+def test_compute_walker_and_other_attempt_recovery(
+    client: TestClient, patched: dict[str, Any], non_rest_activity: str
+) -> None:
+    """Borderline activity_types (walker, other) attempt recovery → fit_quality=0.0
+    on the synthetic flat HR (no_decay), NOT NULL. Preserves three-state distinction."""
+    sess = _session(dur_s=300)
+    non_rest = SessionRow(
+        id=sess.id,
+        activity_type=non_rest_activity,
+        start_time=sess.start_time,
+        end_time=sess.end_time,
+        metrics_status=sess.metrics_status,
+    )
+    patched["session"] = non_rest
+    res = client.post("/compute", json={"session_id": non_rest.id}, headers=_auth())
+    assert res.status_code == 200, res.text
+    written = patched["writes"][0]
+    # "tried but no decay" — distinct from "didn't try."
+    assert written.recovery_tau_s is None
+    assert written.recovery_fit_quality == 0.0
 
 
 def test_compute_filters_dropouts_for_hr_stats(
