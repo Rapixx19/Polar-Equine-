@@ -23,19 +23,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, mode: "signin" });
   }
 
-  const signUp = await supabase.auth.signUp(parsed);
-  if (signUp.error) {
-    console.error("password_signup_failed", {
-      code: signUp.error.code,
-      status: signUp.error.status,
-    });
-    return NextResponse.json({ error: "signup_failed" }, { status: 400 });
-  }
-  if (!signUp.data.session) {
-    return NextResponse.json(
-      { error: "email_confirmation_required" },
-      { status: 400 },
-    );
-  }
-  return NextResponse.json({ ok: true, mode: "signup" });
+  // V0 onboarding is manual: admins create accounts in Supabase Studio.
+  // No self-serve signup. A failed sign-in is therefore "not registered yet"
+  // — surface a generic invalid-credentials error (don't leak whether the
+  // email exists in auth.users).
+  console.warn("password_signin_failed", {
+    code: signIn.error?.code,
+    status: signIn.error?.status,
+  });
+  return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
 }

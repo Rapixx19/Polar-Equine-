@@ -30,24 +30,25 @@ curl -i http://localhost:3000/api/smoke
 ```
 web/
 ├── app/
-│   ├── (auth)/page.tsx              # welcome screen (email + consent)
-│   ├── (auth)/auth/sent/page.tsx    # "check your inbox" + iPhone Bluefy hint
-│   ├── (auth)/auth/callback/route.ts # Route Handler — exchanges magic-link code → session cookies
+│   ├── (auth)/page.tsx              # welcome — email + password sign-in/sign-up
+│   ├── (auth)/auth/forgot/page.tsx  # request a password-reset email
+│   ├── (auth)/auth/reset/page.tsx   # set a new password (post-recovery callback)
+│   ├── (auth)/auth/callback/route.ts # Route Handler — exchanges recovery code → session cookies, honors ?next=
 │   ├── (auth)/auth/provision/page.tsx # display-name capture for new riders
-│   ├── (auth)/auth/error/page.tsx   # expired / invalid link
+│   ├── (auth)/auth/error/page.tsx   # expired / invalid reset link
 │   ├── (rider)/home/page.tsx        # rider home — activity tile picker
 │   ├── (rider)/start/horse/page.tsx # RLS-filtered horse picker
 │   ├── (rider)/session/new/page.tsx # combined connect + record + end
 │   ├── (rider)/session/[id]/saved/page.tsx # post-session confirmation
 │   ├── (rider)/ble-test/page.tsx    # BLE smoke/dev page — Android Chrome only for now
-│   ├── api/auth/{magic-link,provision-rider,logout}/route.ts
+│   ├── api/auth/{password,forgot-password,provision-rider,logout}/route.ts
 │   ├── api/sessions/route.ts        # POST start session (idempotent on client_session_id; 409 on cross-rider horse conflict)
 │   ├── api/sessions/[id]/route.ts   # PATCH end / notes
 │   ├── api/ingest/samples/route.ts  # POST HR samples → samples_hr (pre-flight 404/403/409 + last_ingest_at heartbeat)
 │   ├── api/cron/abandon-stale/route.ts # GET — marks active sessions idle >12h as abandoned (CRON_SECRET-protected)
 │   ├── api/smoke/route.ts           # web → algo bearer round-trip
 │   └── layout.tsx                   # next-app default
-├── components/auth/                 # EmailInput, ProvisionForm, LogoutButton
+├── components/auth/                 # EmailPasswordForm, ForgotPasswordForm, ResetPasswordForm, ProvisionForm, LogoutButton
 ├── components/ble/                  # PairButton, ConnectionStatus, UnsupportedBanner, RecordingControls, BleTestPanel
 ├── components/session/              # ActivityTile, HorseTile, SessionRecorder
 ├── lib/
@@ -102,7 +103,7 @@ web/
 | `ALGO_BEARER_TOKEN` | server-only | Shared secret with algo. Generated once in Slice 1 — stored in 1Password |
 | `NEXT_PUBLIC_SUPABASE_URL` | client+server | Slice 3 — Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client+server | Slice 3 — Supabase anon key |
-| `NEXT_PUBLIC_APP_URL` | client+server | Slice 3 — origin used for magic-link `emailRedirectTo` |
+| `NEXT_PUBLIC_APP_URL` | client+server | Slice 3 — origin used for password-reset `redirectTo` |
 | `ADMIN_EMAILS` | server-only | Slice 3 — comma-separated admin allow-list |
 | `SUPABASE_SERVICE_ROLE_KEY` | server-only | Slice 15+ (admin routes only) |
 | `CRON_SECRET` | server-only | Slice 10 (Rule 14 — required header on `/api/cron/*`) |

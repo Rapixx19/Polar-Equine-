@@ -7,10 +7,20 @@ import type { Database } from "@/lib/supabase/types";
 // Route Handler, not a Server Component: Server Components have a read-only
 // cookie store, so exchangeCodeForSession would silently drop the session
 // cookie writes. Route Handlers can attach Set-Cookie to the redirect response.
+// Same-origin only — refuses absolute URLs and parent-traversal so an
+// attacker can't redirect a freshly-authenticated user off-site.
+function safeNext(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  if (raw.includes("..")) return null;
+  return raw;
+}
+
 export async function GET(request: NextRequest) {
   const url = request.nextUrl;
   const code = url.searchParams.get("code");
   const errorParam = url.searchParams.get("error");
+  const next = safeNext(url.searchParams.get("next"));
 
   if (errorParam) {
     return NextResponse.redirect(new URL("/auth/error", url));
@@ -58,7 +68,8 @@ export async function GET(request: NextRequest) {
   // Rebuild the redirect with the resolved destination, copying the cookies
   // we already accumulated. NextResponse.redirect doesn't let you mutate the
   // Location after the fact, so build a fresh response and replay cookies.
-  const destination = profile ? "/home" : "/auth/provision";
+  // ``next`` (e.g. /auth/reset) wins over the default home/provision routing.
+  const destination = next ?? (profile ? "/home" : "/auth/provision");
   const finalResponse = NextResponse.redirect(new URL(destination, url));
   for (const cookie of response.cookies.getAll()) {
     finalResponse.cookies.set(cookie);

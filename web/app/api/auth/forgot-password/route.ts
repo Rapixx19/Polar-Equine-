@@ -6,7 +6,6 @@ import { createServerSupabaseClient } from "@/lib/auth/server";
 
 const Body = z.object({
   email: z.string().trim().toLowerCase().email(),
-  consented: z.literal(true),
 });
 
 export async function POST(req: NextRequest) {
@@ -18,18 +17,17 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.signInWithOtp({
-    email: parsed.email,
-    options: {
-      emailRedirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-    },
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.email, {
+    redirectTo: `${env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/reset`,
   });
 
   if (error) {
-    // Do not leak whether the email exists; surface a generic failure.
-    console.error("magic_link_send_failed", { code: error.code, status: error.status });
-    return NextResponse.json({ error: "send_failed" }, { status: 500 });
+    // Log but always 200 — never leak whether the email exists.
+    console.error("forgot_password_send_failed", {
+      code: error.code,
+      status: error.status,
+    });
   }
 
-  return NextResponse.json({ sent: true });
+  return NextResponse.json({ ok: true });
 }
