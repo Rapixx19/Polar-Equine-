@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import { EmailInput } from "@/components/auth/EmailInput";
+import { FragmentSessionHandler } from "@/components/auth/FragmentSessionHandler";
 
 export default async function WelcomePage({
   searchParams,
@@ -24,6 +25,7 @@ export default async function WelcomePage({
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-stone-50 p-8 text-stone-900">
+      <FragmentSessionHandler />
       <div className="w-full max-w-md">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-light tracking-tight">La Fattoria</h1>
