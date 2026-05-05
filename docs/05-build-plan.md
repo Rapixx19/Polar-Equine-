@@ -389,6 +389,12 @@ Expected: `session_ok=1, sample_count>=250, hr_min>=30, hr_max<=220, max_gap_ms<
 
 **Critical:** This slice generates the missing Service Worker spec file. Land it.
 
+**Deferred from Slice 11.75 — D (BLE auto-reconnect on disconnect events)**
+
+Restore the BLE GATT connection automatically when notifications stop unexpectedly mid-session. Surface a "reconnecting…" banner; resume sample stream on reconnect.
+
+**Prerequisite: real-flake test environment.** Cannot be reliably tested in dev — BLE flakes happen on real horses during real rides, not on a desk. Defer until either (a) we have ≥10 production sessions where BLE drops actually occurred (so we can study the failure modes) or (b) we build a flake-injection test harness (e.g., a synthetic BLE source that drops notifications on cue).
+
 ### First-on-horse verification (~1 hr, post-Slice 18, before stable trip)
 
 **Goal:** Confirm H10 Equine actually works on a horse, not just on a human chest. Risk: ECG amplitude, R-R range, ACC signature on a horse differ from human; might unmask decoder bugs that passed Slice 7.
