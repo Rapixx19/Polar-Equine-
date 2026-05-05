@@ -73,7 +73,7 @@ If asked to build features beyond collect / clean / classify, push back: *"This 
 | **0 — Pre-flight** | 0 + accounts | PMD codec spike (1-hr cap) + domain/repos/hello-world deploys | ~3 | Go/no-go on Slice 12 budget |
 | **1 — Foundation** | 1, 2, 3, 4 | Bearer round-trip + schema + magic-link auth + sessions API | ~13 | Sign-in works on phone |
 | **2 — First smoke** | 5, 6, 7 | BLE pair → ingest → record-on-self | ~16 | **Smoke test on Ferdinand's chest** |
-| **3 — Compute** | 8, 9, 10, 11, 11.5 | V.0.1 migrations + algo + cron runner + TRIMP + recovery τ | ~21 | **HRV row appears in DB** |
+| **3 — Compute** | 8, 9, ✅ 10, 11, 11.5 | V.0.1 migrations + algo + cron runner + TRIMP + recovery τ | ~21 | ✅ **CLOSED 2026-05-05** — first real H10 → `session_metrics` row, algo 0.3.1, `rr_cleaning_quality=0.9966`. Tag `phase-3-closed`. Slice 11 (TRIMP) is next. |
 | **4 — Full sensors** | 12, 13, 14 | PMD codec (ACC+ECG) + gait + stress test | ~14–22 | **ECG/ACC flow + stress test** |
 | **5 — Review + admin** | 15, 16, 16.5 | Label review UI + admin dashboard + anomaly-rest | ~17 | Rider reviews <60s |
 | **6 — Production gate** | 17, 18 | Multi-rider RLS + Realtime auth + iPhone + Service Worker + first-on-horse | ~11 | **Stable-trip ready** |
