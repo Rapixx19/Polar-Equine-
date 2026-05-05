@@ -30,7 +30,8 @@ export function UnsupportedBanner() {
     >
       <p className="font-medium">Web Bluetooth isn&apos;t available in this browser.</p>
       <p className="mt-1">
-        Use Chrome on Android or desktop Chrome. Full iOS support is coming in V.0.1.
+        On iPhone, open this page in <strong>Bluefy</strong> (free in the App Store).
+        On other devices, use desktop Chrome or Chrome on Android.
       </p>
     </div>
   );
