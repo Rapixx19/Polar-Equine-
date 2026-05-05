@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { activityLabel } from "@/components/session/ActivityTile";
+import { QualitySummary } from "@/components/session/QualitySummary";
 import type { ActivityType } from "@/lib/activities";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import {
@@ -75,6 +76,10 @@ export default async function SessionSavedPage({
             <dd className="text-sm font-medium tabular-nums">{sampleCount ?? 0}</dd>
           </div>
         </dl>
+
+        <div className="mb-6">
+          <QualitySummary sessionId={s.id} />
+        </div>
 
         <Link
           href="/home"

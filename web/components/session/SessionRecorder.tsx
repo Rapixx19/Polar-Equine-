@@ -3,14 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { CaptureQualityBadge } from "@/components/ble/CaptureQualityBadge";
 import { ConnectionStatus } from "@/components/ble/ConnectionStatus";
 import { PairButton } from "@/components/ble/PairButton";
 import { UnsupportedBanner } from "@/components/ble/UnsupportedBanner";
+import { PreSessionGuard } from "@/components/recording/PreSessionGuard";
 import { activityLabel } from "@/components/session/ActivityTile";
+import { RecorderButtons } from "@/components/session/RecorderButtons";
 import type { ActivityType } from "@/lib/activities";
 import type { ConnectionState } from "@/lib/ble/connection";
 import type { HRSample } from "@/lib/ble/hr-codec";
 import { useIngestSession } from "@/lib/ble/use-ingest-session";
+import { useCaptureSession } from "@/lib/ui/use-capture-session";
 
 type Props = {
   horse: { id: string; name: string };
@@ -29,6 +33,11 @@ export function SessionRecorder({ horse, activity }: Props) {
   const sessionIdRef = useRef<string | null>(null);
 
   const ingest = useIngestSession();
+  const captureQuality = useCaptureSession({
+    active: ingest.state === "recording",
+    sessionId: ingest.sessionId,
+    latestSample: sample,
+  });
 
   useEffect(() => {
     if (ingest.sessionId) sessionIdRef.current = ingest.sessionId;
@@ -80,6 +89,7 @@ export function SessionRecorder({ horse, activity }: Props) {
       </div>
 
       <UnsupportedBanner />
+      <PreSessionGuard />
 
       {!isRecording && !isStopping && (
         <p className="text-sm text-stone-600">
@@ -103,33 +113,25 @@ export function SessionRecorder({ horse, activity }: Props) {
         errorMessage={errorMessage}
       />
 
+      {(isRecording || isStopping) && (
+        <CaptureQualityBadge
+          state={captureQuality.state}
+          goodPct={captureQuality.summary.goodPct}
+        />
+      )}
+
       {showDisconnectBanner && (
         <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           ⚠ Connection lost. Reconnect the band, or tap End to save what we have.
         </div>
       )}
 
-      {ingest.state === "off" && (
-        <button
-          type="button"
-          onClick={() => void ingest.start(horse.id, activity)}
-          disabled={startDisabled}
-          className="w-full rounded-md bg-emerald-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Start session
-        </button>
-      )}
-
-      {(isRecording || isStopping) && (
-        <button
-          type="button"
-          onClick={() => void handleEnd()}
-          disabled={isStopping}
-          className="w-full rounded-md bg-rose-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isStopping ? "Saving session…" : "End session"}
-        </button>
-      )}
+      <RecorderButtons
+        state={ingest.state}
+        startDisabled={startDisabled}
+        onStart={() => void ingest.start(horse.id, activity)}
+        onEnd={() => void handleEnd()}
+      />
 
       <div className="flex justify-between text-xs text-stone-500">
         <span>Flushed: {ingest.flushedCount}</span>
