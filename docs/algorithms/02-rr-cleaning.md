@@ -105,6 +105,20 @@ def _lipponen_tarvainen(rr, config, protected_segments):
 
 `neurokit2.signal_fixpeaks(method='kubios')` is a faithful re-implementation of the published Tarvainen algorithm. Reproducing it from scratch is error-prone. We wrap it and add equine pre/post-processing.
 
+## Quality score
+
+```
+quality = max(0.0, 1.0 - n_corrected / n_total)
+```
+
+Where:
+- `n_total` = length of the input array (pre-cleaning).
+- `n_corrected` = count of RR positions where `rr_clean[i] != rr_input_after_bounds_check[i]` (i.e. the kubios pass moved a value), unioned with the count of values that failed the physiological bounds check (`rr < rr_min_ms` or `rr > rr_max_ms`). Bounds-failed positions count even if the linear interpolation lands them at a value the kubios pass would also have produced — they were "corrected" by the bounds step.
+- `quality = 1.0` means nothing was touched. `quality = 0.0` means every beat was modified. The `max(0.0, ...)` is a defensive floor (the formula can't go negative in practice but the clamp is documented anyway).
+- `n_total == 0` (empty input) raises `ValueError("no_valid_beats")` rather than dividing by zero. The same exception fires when every input value fails the bounds check (so `rr_bounded` is all-NaN) — there's nothing to interpolate from. Callers map this to HTTP 422.
+
+This is independent of `hrv_metrics.compute()`'s `quality` (which is `min(1.0, n_beats / 60)` — a measure of input length vs. the 60-beat short-term target). The `/compute` response surfaces both as `rr_cleaning_quality` and `hrv_completeness_quality` so consumers can distinguish "noisy input" from "too-short input".
+
 ## Tests
 
 ```python

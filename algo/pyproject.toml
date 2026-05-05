@@ -10,6 +10,9 @@ dependencies = [
     "pydantic>=2.9",
     "pydantic-settings>=2.6",
     "structlog>=24.4",
+    "neurokit2>=0.2.11",
+    "scipy>=1.12.0",
+    "numpy>=1.26.0",
 ]
 
 [dependency-groups]

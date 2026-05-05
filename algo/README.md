@@ -26,10 +26,19 @@ uv run uvicorn service.main:app --port 8787 --reload
 Smoke test:
 ```bash
 curl -i http://localhost:8787/health -H "Authorization: Bearer $ALGO_BEARER_TOKEN"
-# → 200 {"status":"ok","algo_version":"0.1.0"}
+# → 200 {"status":"ok","algo_version":"0.2.0"}
 
 curl -i http://localhost:8787/health
 # → 401 {"detail":"invalid bearer"}
+
+# /compute (Slice 9): synthetic-only mode — body is a raw RR list.
+# Slice 10 swaps this to {"session_id": "<uuid>"} once the algo can read samples_hr.
+curl -s http://localhost:8787/compute \
+  -H "Authorization: Bearer $ALGO_BEARER_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"rr_ms":[1900,2050,1980,2100,...]}' | jq
+# → 200 {rmssd_ms, sdnn_ms, pnn50_pct, pnn20_pct, mean_rr_ms, n_beats,
+#         rr_cleaning_quality, hrv_completeness_quality, algo_version}
 ```
 
 ---
@@ -39,20 +48,25 @@ curl -i http://localhost:8787/health
 ```
 algo/
 ├── service/          # FastAPI app — never edit unless adding an endpoint
-│   ├── main.py       # routes mount here
+│   ├── main.py       # routes mount here (/health, /compute)
 │   ├── auth.py       # bearer-token check (Rule 14)
+│   ├── models.py     # Pydantic request/response (extra='forbid')
 │   └── settings.py   # pydantic-settings; loads .env
 ├── algorithms/       # ← FREELANCER WORK LIVES HERE
 │   ├── version.py    # bump algo_version on EVERY change (Rule 13)
-│   ├── rr_cleaning.py        # Slice 8
-│   ├── hrv_metrics.py        # Slice 9
+│   ├── rr_cleaning.py        # Slice 9 — clean()
+│   ├── hrv_metrics.py        # Slice 9 — compute()
 │   ├── recovery_tau.py       # Slice 11.5
 │   ├── trimp_zones.py        # Slice 11
 │   ├── gait_detection/       # Slice 13
 │   └── anomaly_rest.py       # Slice 16.5
 └── tests/
     ├── test_health.py
-    └── fixtures/     # Parquet (synthetic) + PhysioNet RR reference data — Slice 9+
+    ├── test_rr_cleaning.py
+    ├── test_hrv_metrics.py
+    ├── test_compute_endpoint.py
+    └── fixtures/
+        └── physionet_nsrdb_16265.json   # Slice 9 — 5-min ref window, fs=128
 ```
 
 ---
