@@ -285,6 +285,10 @@ Expected: `session_ok=1, sample_count>=250, hr_min>=30, hr_max<=220, max_gap_ms<
 
 **Kill switch:** `scipy.optimize.curve_fit` is well-trodden. If R² consistently <0.7 on real data, mark `recovery_tau` nullable and continue. Don't fight noisy fits.
 
+### Slice 11.75 follow-up — capture-quality threshold calibration
+
+`WEAK_CORRECTION_RATE = 0.05` in `web/lib/ble/capture-quality.ts` is a starting value. Verified against still-sit (clean) and walk+sit on a human chest (88% good, expected). **Not yet calibrated against rider-on-horse motion.** After ≥3 real rider-on-horse sessions land in production, retrospectively review badge state and tune per Task 5.4 step 3 of the slice plan (`docs/superpowers/plans/2026-05-05-slice-11.75-bluefy-ux.md`). Threshold is not load-bearing; do not treat 0.05 as canonical.
+
 ---
 
 ## Phase 4 — Full sensors (~14–22 hrs)
