@@ -101,6 +101,15 @@ def write_session_metrics(row: SessionMetricsRow) -> None:
         "rr_cleaning_quality": row.rr_cleaning_quality,
         "hrv_completeness_quality": row.hrv_completeness_quality,
         "algo_version": row.algo_version,
+        # Slice 11 — workload (TRIMP + zones). Present from algo_version 0.5.0.
+        "trimp_banister": row.trimp_banister,
+        "time_z1_s": row.time_z1_s,
+        "time_z2_s": row.time_z2_s,
+        "time_z3_s": row.time_z3_s,
+        "time_z4_s": row.time_z4_s,
+        "time_z5_s": row.time_z5_s,
+        "avg_hr_pct": row.avg_hr_pct,
+        "workload_quality": row.workload_quality,
     }
     try:
         get_supabase_client().table("session_metrics").insert(payload).execute()

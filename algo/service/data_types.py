@@ -46,3 +46,13 @@ class SessionMetricsRow:
     rr_cleaning_quality: float
     hrv_completeness_quality: float
     algo_version: str
+    # Slice 11 — workload (TRIMP + 5-zone times). Nullable for sessions that
+    # predate migration 016 or where the algorithm declines to compute.
+    trimp_banister: float | None = None
+    time_z1_s: int | None = None
+    time_z2_s: int | None = None
+    time_z3_s: int | None = None
+    time_z4_s: int | None = None
+    time_z5_s: int | None = None
+    avg_hr_pct: float | None = None
+    workload_quality: float | None = None

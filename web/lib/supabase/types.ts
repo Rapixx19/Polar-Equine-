@@ -539,6 +539,7 @@ export type Database = {
       session_metrics: {
         Row: {
           algo_version: string | null
+          avg_hr_pct: number | null
           computed_at: string | null
           duration_s: number | null
           hr_avg: number | null
@@ -549,6 +550,7 @@ export type Database = {
           jump_count: number | null
           pnn20_pct: number | null
           pnn50_pct: number | null
+          recovery_fit_quality: number | null
           recovery_tau_s: number | null
           rmssd_ms: number | null
           rr_cleaning_quality: number | null
@@ -559,10 +561,17 @@ export type Database = {
           time_rest_s: number | null
           time_trot_s: number | null
           time_walk_s: number | null
+          time_z1_s: number | null
+          time_z2_s: number | null
+          time_z3_s: number | null
+          time_z4_s: number | null
+          time_z5_s: number | null
           trimp_banister: number | null
+          workload_quality: number | null
         }
         Insert: {
           algo_version?: string | null
+          avg_hr_pct?: number | null
           computed_at?: string | null
           duration_s?: number | null
           hr_avg?: number | null
@@ -573,6 +582,7 @@ export type Database = {
           jump_count?: number | null
           pnn20_pct?: number | null
           pnn50_pct?: number | null
+          recovery_fit_quality?: number | null
           recovery_tau_s?: number | null
           rmssd_ms?: number | null
           rr_cleaning_quality?: number | null
@@ -583,10 +593,17 @@ export type Database = {
           time_rest_s?: number | null
           time_trot_s?: number | null
           time_walk_s?: number | null
+          time_z1_s?: number | null
+          time_z2_s?: number | null
+          time_z3_s?: number | null
+          time_z4_s?: number | null
+          time_z5_s?: number | null
           trimp_banister?: number | null
+          workload_quality?: number | null
         }
         Update: {
           algo_version?: string | null
+          avg_hr_pct?: number | null
           computed_at?: string | null
           duration_s?: number | null
           hr_avg?: number | null
@@ -597,6 +614,7 @@ export type Database = {
           jump_count?: number | null
           pnn20_pct?: number | null
           pnn50_pct?: number | null
+          recovery_fit_quality?: number | null
           recovery_tau_s?: number | null
           rmssd_ms?: number | null
           rr_cleaning_quality?: number | null
@@ -607,7 +625,13 @@ export type Database = {
           time_rest_s?: number | null
           time_trot_s?: number | null
           time_walk_s?: number | null
+          time_z1_s?: number | null
+          time_z2_s?: number | null
+          time_z3_s?: number | null
+          time_z4_s?: number | null
+          time_z5_s?: number | null
           trimp_banister?: number | null
+          workload_quality?: number | null
         }
         Relationships: [
           {

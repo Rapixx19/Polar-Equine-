@@ -1,17 +1,18 @@
 """Shared /compute + /recompute pipeline. Rule 1 ≤150 lines.
 
 Both routes do the same work after the 409/delete branch, so the inner
-"clean → HRV → write → mark complete" sequence lives here. Any unhandled
-exception flips ``metrics_status='failed'`` before re-raising — Rule 9.
+"clean → HRV → workload → write → mark complete" sequence lives here. Any
+unhandled exception flips ``metrics_status='failed'`` before re-raising — Rule 9.
 """
 
 from __future__ import annotations
 
 import numpy as np
+import structlog
 from fastapi import HTTPException
 from numpy.typing import NDArray
 
-from algorithms import hrv_metrics, rr_cleaning
+from algorithms import hrv_metrics, rr_cleaning, trimp_zones
 from algorithms.version import algo_version
 from service.data import (
     filter_hr_for_stats,
@@ -21,6 +22,8 @@ from service.data import (
 )
 from service.data_types import SessionMetricsRow, SessionRow
 from service.models import ComputeResponse
+
+log = structlog.get_logger()
 
 
 def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
@@ -43,11 +46,21 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             set_metrics_status(session.id, "failed")
             raise HTTPException(status_code=422, detail="no_valid_hr_samples")
 
+        workload = trimp_zones.compute(samples.hr_bpm, samples.timestamp_ms)
+        if workload.n_dropped > 0:
+            log.warning(
+                "trimp.hr_dropped",
+                session_id=session.id,
+                n_dropped=workload.n_dropped,
+                quality=workload.quality,
+            )
+
         row = _compose_metrics_row(
             session=session,
             cleaned=cleaned,
             metrics=metrics,
             hr_kept=hr_kept,
+            workload=workload,
             duration_s=_duration_s(session),
         )
         try:
@@ -76,6 +89,7 @@ def _compose_metrics_row(
     cleaned: rr_cleaning.CleaningResult,
     metrics: hrv_metrics.HRVResult,
     hr_kept: NDArray[np.float64],
+    workload: trimp_zones.WorkloadResult,
     duration_s: int,
 ) -> SessionMetricsRow:
     return SessionMetricsRow(
@@ -92,6 +106,14 @@ def _compose_metrics_row(
         rr_cleaning_quality=cleaned.quality,
         hrv_completeness_quality=metrics.quality,
         algo_version=algo_version,
+        trimp_banister=workload.trimp_banister,
+        time_z1_s=workload.time_z1_s,
+        time_z2_s=workload.time_z2_s,
+        time_z3_s=workload.time_z3_s,
+        time_z4_s=workload.time_z4_s,
+        time_z5_s=workload.time_z5_s,
+        avg_hr_pct=workload.avg_hr_pct,
+        workload_quality=workload.quality,
     )
 
 

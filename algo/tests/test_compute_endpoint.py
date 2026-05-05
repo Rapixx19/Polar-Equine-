@@ -150,6 +150,21 @@ def test_compute_happy_path(client: TestClient, patched: dict[str, Any]) -> None
     assert 0.0 <= written.rr_cleaning_quality <= 1.0
     assert 0.0 <= written.hrv_completeness_quality <= 1.0
     assert 0 < written.pnn50_pct <= 100
+    # Slice 11 — workload columns must be populated (not NULL).
+    assert written.trimp_banister is not None
+    assert written.trimp_banister >= 0.0
+    assert written.workload_quality is not None
+    assert 0.0 <= written.workload_quality <= 1.0
+    assert written.avg_hr_pct is not None
+    assert written.avg_hr_pct >= 0.0
+    for z in (
+        written.time_z1_s,
+        written.time_z2_s,
+        written.time_z3_s,
+        written.time_z4_s,
+        written.time_z5_s,
+    ):
+        assert z is not None and z >= 0
     statuses = [s for _, s in patched["status_calls"]]
     assert statuses[0] == "computing"
     assert statuses[-1] == "complete"
