@@ -47,23 +47,34 @@ export function createMockWakeLock(): { wakeLock: MockWakeLock; lastSentinel: ()
   return { wakeLock, lastSentinel: () => sentinel };
 }
 
-// Install on globalThis.navigator. vitest's node env has no navigator —
-// we attach an ad-hoc one. uninstall() restores prior state for test isolation.
+// Install on globalThis.navigator. Node 21+ ships `navigator` as a built-in
+// global with a getter-only property descriptor, so direct assignment fails
+// with "Cannot set property navigator of #<Object> which has only a getter".
+// Use Object.defineProperty to override; uninstall() restores prior state.
 export function installMockWakeLock(): {
   wakeLock: MockWakeLock;
   lastSentinel: () => MockSentinel | null;
   uninstall: () => void;
 } {
   const { wakeLock, lastSentinel } = createMockWakeLock();
+  const priorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const g = globalThis as any;
-  const priorNav = g.navigator;
-  g.navigator = { ...(priorNav ?? {}), wakeLock };
+  const priorNav = (globalThis as any).navigator;
+  Object.defineProperty(globalThis, "navigator", {
+    value: { ...(priorNav ?? {}), wakeLock },
+    configurable: true,
+    writable: true,
+  });
   return {
     wakeLock,
     lastSentinel,
     uninstall: () => {
-      g.navigator = priorNav;
+      if (priorDescriptor) {
+        Object.defineProperty(globalThis, "navigator", priorDescriptor);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (globalThis as any).navigator;
+      }
     },
   };
 }
