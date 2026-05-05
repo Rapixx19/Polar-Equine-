@@ -14,6 +14,14 @@ from numpy.typing import NDArray
 
 MetricsStatus = Literal["pending", "computing", "complete", "failed"]
 
+# Slice 11.5: rest sessions skip recovery τ. Values must match the
+# ``sessions.activity_type`` CHECK constraint in migration 002. ``walker`` is
+# borderline (low-intensity locomotion, no peak/decay structure) but stays
+# OUT of the rest set — the algorithm's ``no_decay`` path handles it
+# naturally, preserving the three-state distinction between "didn't try"
+# (NULL) and "tried but no decay" (0.0). Same reasoning for ``other``.
+REST_ACTIVITIES = frozenset({"stall", "grass_field", "transport", "vet"})
+
 
 @dataclass(frozen=True)
 class SessionRow:
@@ -46,3 +54,17 @@ class SessionMetricsRow:
     rr_cleaning_quality: float
     hrv_completeness_quality: float
     algo_version: str
+    # Slice 11 — workload (TRIMP + 5-zone times). Nullable for sessions that
+    # predate migration 016 or where the algorithm declines to compute.
+    trimp_banister: float | None = None
+    time_z1_s: int | None = None
+    time_z2_s: int | None = None
+    time_z3_s: int | None = None
+    time_z4_s: int | None = None
+    time_z5_s: int | None = None
+    avg_hr_pct: float | None = None
+    workload_quality: float | None = None
+    # Slice 11.5 — recovery τ. Three-state: NULL = not attempted (rest);
+    # 0.0 = attempted-and-failed; (0,1] = R²-style. Migration 016.
+    recovery_tau_s: float | None = None
+    recovery_fit_quality: float | None = None

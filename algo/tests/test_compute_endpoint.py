@@ -150,9 +150,73 @@ def test_compute_happy_path(client: TestClient, patched: dict[str, Any]) -> None
     assert 0.0 <= written.rr_cleaning_quality <= 1.0
     assert 0.0 <= written.hrv_completeness_quality <= 1.0
     assert 0 < written.pnn50_pct <= 100
+    # Slice 11 — workload columns must be populated (not NULL).
+    assert written.trimp_banister is not None
+    assert written.trimp_banister >= 0.0
+    assert written.workload_quality is not None
+    assert 0.0 <= written.workload_quality <= 1.0
+    assert written.avg_hr_pct is not None
+    assert written.avg_hr_pct >= 0.0
+    for z in (
+        written.time_z1_s,
+        written.time_z2_s,
+        written.time_z3_s,
+        written.time_z4_s,
+        written.time_z5_s,
+    ):
+        assert z is not None and z >= 0
+    # Slice 11.5 — non-rest activity attempts recovery; flat synthetic HR has no
+    # real peak/decay, so this is the attempted-and-failed three-state branch:
+    # tau_s=None but fit_quality=0.0 (NOT None).
+    assert written.recovery_tau_s is None
+    assert written.recovery_fit_quality == 0.0
     statuses = [s for _, s in patched["status_calls"]]
     assert statuses[0] == "computing"
     assert statuses[-1] == "complete"
+
+
+@pytest.mark.parametrize("rest_activity", ["stall", "grass_field", "transport", "vet"])
+def test_compute_rest_activities_write_null_recovery(
+    client: TestClient, patched: dict[str, Any], rest_activity: str
+) -> None:
+    """Each REST_ACTIVITIES value skips recovery → both columns NULL (not 0.0)."""
+    sess = _session(dur_s=300)
+    rest_sess = SessionRow(
+        id=sess.id,
+        activity_type=rest_activity,
+        start_time=sess.start_time,
+        end_time=sess.end_time,
+        metrics_status=sess.metrics_status,
+    )
+    patched["session"] = rest_sess
+    res = client.post("/compute", json={"session_id": rest_sess.id}, headers=_auth())
+    assert res.status_code == 200, res.text
+    written = patched["writes"][0]
+    assert written.recovery_tau_s is None
+    assert written.recovery_fit_quality is None
+
+
+@pytest.mark.parametrize("non_rest_activity", ["walker", "other"])
+def test_compute_walker_and_other_attempt_recovery(
+    client: TestClient, patched: dict[str, Any], non_rest_activity: str
+) -> None:
+    """Borderline activity_types (walker, other) attempt recovery → fit_quality=0.0
+    on the synthetic flat HR (no_decay), NOT NULL. Preserves three-state distinction."""
+    sess = _session(dur_s=300)
+    non_rest = SessionRow(
+        id=sess.id,
+        activity_type=non_rest_activity,
+        start_time=sess.start_time,
+        end_time=sess.end_time,
+        metrics_status=sess.metrics_status,
+    )
+    patched["session"] = non_rest
+    res = client.post("/compute", json={"session_id": non_rest.id}, headers=_auth())
+    assert res.status_code == 200, res.text
+    written = patched["writes"][0]
+    # "tried but no decay" — distinct from "didn't try."
+    assert written.recovery_tau_s is None
+    assert written.recovery_fit_quality == 0.0
 
 
 def test_compute_filters_dropouts_for_hr_stats(

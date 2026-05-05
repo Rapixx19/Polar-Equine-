@@ -185,3 +185,16 @@ def test_handles_noisy_realistic_data():
 ## V.1 enhancement
 
 When custom band ships, recompute τ on every detected gait→walk transition (interval recovery). Track distribution of τ across the session, not just one value.
+
+## V0.0 implementation addendum (Slice 11.5)
+
+The shipping implementation in `algo/algorithms/recovery_tau.py` matches this spec but diverges on three load-bearing points worth flagging for the contractor M1 audit:
+
+1. **No pandas dep.** The spec ships a pandas-based reference. The algo container uses `numpy` arrays with `scipy.signal.medfilt(kernel_size=5)` on a 1-Hz uniformly-resampled grid (via `np.interp` from raw irregular timestamps). Same outputs, smaller dep tree.
+2. **Three-state `recovery_fit_quality` (migration 016 column comment is the contract).**
+   * `NULL`        — not attempted. Route layer (`service/routes/_pipeline.py`) checks `session.activity_type in REST_ACTIVITIES = {"stall", "grass_field", "transport", "vet"}` (values must match the `sessions.activity_type` CHECK in migration 002) and writes NULL/NULL directly without calling `fit()`. `walker` and `other` are intentionally NOT in the rest set — `walker` is low-intensity locomotion with no peak/decay structure and `other` is unknown; both attempt the fit and the algorithm's `no_decay` branch handles them, preserving the distinction between "didn't try" (NULL) and "tried but no decay" (0.0).
+   * `0.0`         — attempted but failed (`reason ∈ {"no_peak", "no_decay", "fit_failed", "dropout_during_decay"}`). `tau_s=None` in this branch.
+   * `(0.0, 1.0]`  — successful fit; value is `1 - rmse / max(peak_hr − baseline, 1)`.
+3. **Dropout guard.** `RecoveryConfig.max_gap_s = 10`. The fit is rejected (reason `"dropout_during_decay"`) when the **original** irregular timestamps inside the decay window have a `>10 s` gap — linear interp across a real-world dropout would fabricate a smooth ramp and bias τ downward.
+
+The `tau` upper bound stays at **600 s** to match this spec (model bounds at :100). A `# TODO Slice 11.5+` in the implementation flags tightening toward ~300 s once contractor M1 has real-horse decay calibration data; equine literature (Art 1990, Marlin 2002) places fatigued τ at >200 s, and τ>300 s in practice usually indicates incomplete decay rather than biological signal.
