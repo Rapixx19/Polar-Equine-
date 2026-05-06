@@ -229,10 +229,12 @@ def test_delete_session_metrics_issues_delete(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_filter_hr_for_stats() -> None:
-    arr = np.array([0.0, 35.0, 80.0, 120.0, 250.0, np.nan, 200.0])
+    # Bounds are [20, 240] - equine resting HR can sit at 25-35 BPM and
+    # XC peaks can hit 235 BPM; both must survive the filter.
+    arr = np.array([0.0, 15.0, 20.0, 28.0, 80.0, 235.0, 240.0, 250.0, np.nan])
     kept, n_dropped = data.filter_hr_for_stats(arr)
-    assert list(kept) == [35.0, 80.0, 120.0, 200.0]
-    assert n_dropped == 3
+    assert list(kept) == [20.0, 28.0, 80.0, 235.0, 240.0]
+    assert n_dropped == 4
 
 
 def _row(**overrides: object) -> SessionMetricsRow:
@@ -249,7 +251,7 @@ def _row(**overrides: object) -> SessionMetricsRow:
         "pnn20_pct": 24.0,
         "rr_cleaning_quality": 1.0,
         "hrv_completeness_quality": 1.0,
-        "algo_version": "0.5.0",
+        "algo_version": "0.5.1",
     }
     base.update(overrides)
     return SessionMetricsRow(**base)  # type: ignore[arg-type]

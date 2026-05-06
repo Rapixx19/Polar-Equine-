@@ -18,8 +18,8 @@ from service.data_types import MetricsStatus, SamplesHR, SessionMetricsRow, Sess
 from service.settings import settings
 
 _PAGE_SIZE = 1000
-_HR_MIN_BPM = 30
-_HR_MAX_BPM = 220
+_HR_MIN_BPM = 20
+_HR_MAX_BPM = 240
 
 
 _client: Client | None = None
