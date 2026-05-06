@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
       horse_id: body.horse_id,
       band_id: body.band_id ?? null,
       activity_type: body.activity_type,
+      riding_subtype: body.riding_subtype ?? null,
+      activity_note: body.activity_note ?? null,
       client_session_id: body.client_session_id,
       start_time,
       status: "active",
