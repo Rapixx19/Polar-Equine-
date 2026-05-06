@@ -82,7 +82,7 @@ export default async function HomePage() {
 
         <div className="mt-6 text-center">
           <Link
-            href="/start/horse?activity=other"
+            href="/session/new/custom"
             className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] transition hover:text-[var(--lime)]"
           >
             <span aria-hidden className="text-base">
