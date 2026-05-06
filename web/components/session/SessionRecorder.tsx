@@ -10,7 +10,11 @@ import { UnsupportedBanner } from "@/components/ble/UnsupportedBanner";
 import { PreSessionGuard } from "@/components/recording/PreSessionGuard";
 import { activityLabel } from "@/components/session/ActivityTile";
 import { RecorderButtons } from "@/components/session/RecorderButtons";
-import type { ActivityType } from "@/lib/activities";
+import {
+  RIDING_SUBTYPE_UI,
+  type ActivityType,
+  type RidingSubtype,
+} from "@/lib/activities";
 import type { ConnectionState } from "@/lib/ble/connection";
 import type { HRSample } from "@/lib/ble/hr-codec";
 import { useIngestSession } from "@/lib/ble/use-ingest-session";
@@ -19,9 +23,11 @@ import { useCaptureSession } from "@/lib/ui/use-capture-session";
 type Props = {
   horse: { id: string; name: string };
   activity: ActivityType;
+  ridingSubtype?: RidingSubtype | null;
+  activityNote?: string | null;
 };
 
-export function SessionRecorder({ horse, activity }: Props) {
+export function SessionRecorder({ horse, activity, ridingSubtype = null, activityNote = null }: Props) {
   const router = useRouter();
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [deviceName, setDeviceName] = useState<string | undefined>();
@@ -77,6 +83,12 @@ export function SessionRecorder({ horse, activity }: Props) {
 
   const isRecording = ingest.state === "recording";
   const isStopping = ingest.state === "stopping";
+  const contextLabel =
+    activity === "other" && activityNote
+      ? activityNote
+      : ridingSubtype
+        ? `${activityLabel(activity)} · ${RIDING_SUBTYPE_UI[ridingSubtype].label}`
+        : activityLabel(activity);
   const showDisconnectBanner = isRecording && connectionState === "disconnected";
   const startDisabled =
     connectionState !== "connected" || ingest.state !== "off";
@@ -85,7 +97,7 @@ export function SessionRecorder({ horse, activity }: Props) {
     <div className="mx-auto w-full max-w-md space-y-4">
       <div>
         <h1 className="text-2xl font-light">Recording for {horse.name}</h1>
-        <p className="mt-1 text-sm text-[var(--text-faint)]">{activityLabel(activity)}</p>
+        <p className="mt-1 text-sm text-[var(--text-faint)]">{contextLabel}</p>
       </div>
 
       <UnsupportedBanner />
@@ -129,7 +141,12 @@ export function SessionRecorder({ horse, activity }: Props) {
       <RecorderButtons
         state={ingest.state}
         startDisabled={startDisabled}
-        onStart={() => void ingest.start(horse.id, activity)}
+        onStart={() =>
+          void ingest.start(horse.id, activity, {
+            ridingSubtype,
+            activityNote,
+          })
+        }
         onEnd={() => void handleEnd()}
       />
 

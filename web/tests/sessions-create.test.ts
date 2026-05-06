@@ -138,6 +138,38 @@ describe("POST /api/sessions", () => {
     expect(res.status).toBe(403);
   });
 
+  it("forwards riding_subtype into the insert row when activity_type='riding'", async () => {
+    getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
+    const { POST } = await import("@/app/api/sessions/route");
+
+    const res = await POST(
+      fakeReq({ ...validBody, riding_subtype: "heavy_jumping" }),
+    );
+    expect(res.status).toBe(200);
+    const row = insertSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(row.riding_subtype).toBe("heavy_jumping");
+    expect(row.activity_note).toBeNull();
+  });
+
+  it("forwards activity_note into the insert row when activity_type='other'", async () => {
+    getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
+    const { POST } = await import("@/app/api/sessions/route");
+
+    const res = await POST(
+      fakeReq({
+        horse_id: HORSE_ID,
+        activity_type: "other",
+        client_session_id: CLIENT_SESSION_ID,
+        activity_note: "Polo match — practice game",
+      }),
+    );
+    expect(res.status).toBe(200);
+    const row = insertSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(row.activity_type).toBe("other");
+    expect(row.activity_note).toBe("Polo match — practice game");
+    expect(row.riding_subtype).toBeNull();
+  });
+
   it("returns 409 when another rider already has this horse active", async () => {
     insertReturn = {
       data: null,
