@@ -19,7 +19,7 @@ export function RecorderButtons({ state, startDisabled, onStart, onEnd }: Props)
         type="button"
         onClick={onStart}
         disabled={startDisabled}
-        className="w-full rounded-md bg-emerald-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-md bg-[var(--lime)] px-5 py-3 text-sm font-medium text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--text-faint)] disabled:opacity-100"
       >
         Start session
       </button>
@@ -33,7 +33,7 @@ export function RecorderButtons({ state, startDisabled, onStart, onEnd }: Props)
         type="button"
         onClick={onEnd}
         disabled={isStopping}
-        className="w-full rounded-md bg-rose-700 px-5 py-3 text-sm font-medium text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-md bg-[var(--red)] px-5 py-3 text-sm font-medium text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isStopping ? "Saving session…" : "End session"}
       </button>

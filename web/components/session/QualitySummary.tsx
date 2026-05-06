@@ -40,7 +40,7 @@ export function QualitySummary({ sessionId }: { sessionId: string }) {
     goodPct >= 90 ? "Good signal" : goodPct >= 60 ? "Mixed signal" : "Poor signal";
 
   return (
-    <p className="text-sm text-stone-600">
+    <p className="text-sm text-[var(--text-muted)]">
       Recording quality: <span aria-hidden>{dot}</span> {label} for {goodPct}% of session
     </p>
   );

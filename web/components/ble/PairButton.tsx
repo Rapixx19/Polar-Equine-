@@ -48,7 +48,7 @@ export function PairButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="rounded-md bg-stone-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-stone-800 disabled:cursor-not-allowed disabled:opacity-60"
+      className="rounded-md bg-[var(--lime)] px-5 py-2 text-sm font-medium text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {labelFor(state, busy)}
     </button>

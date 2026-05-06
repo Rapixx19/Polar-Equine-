@@ -36,7 +36,7 @@ export default async function SessionNewPage({
   if (!horse) redirect(`/start/horse?activity=${activity}`);
 
   return (
-    <main className="min-h-screen bg-stone-50 p-6 text-stone-900">
+    <main className="min-h-screen p-6">
       <SessionRecorder horse={{ id: horse.id, name: horse.name }} activity={activity} />
     </main>
   );

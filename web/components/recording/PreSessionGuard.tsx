@@ -42,7 +42,7 @@ export function PreSessionGuard() {
   return (
     <div
       role="alert"
-      className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+      className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200"
     >
       <p className="font-medium">Keep your screen on during the ride.</p>
       <p className="mt-1">
@@ -51,7 +51,7 @@ export function PreSessionGuard() {
       </p>
       <button
         type="button"
-        className="mt-3 rounded-md bg-amber-900 px-3 py-1.5 text-xs font-medium text-amber-50 hover:bg-amber-950"
+        className="mt-3 rounded-md bg-amber-200 px-3 py-1.5 text-xs font-medium text-[var(--canvas)] hover:bg-amber-100"
         onClick={dismiss}
       >
         Got it

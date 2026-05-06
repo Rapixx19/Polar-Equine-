@@ -22,10 +22,10 @@ export function CaptureQualityBadge({ state, goodPct }: Props) {
       aria-live="polite"
       data-state={state}
       data-good-pct={goodPct?.toFixed(3)}
-      className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1 text-xs"
+      className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs"
     >
       <span aria-hidden>{dot}</span>
-      <span className="text-stone-700">{label}</span>
+      <span className="text-[var(--text-muted)]">{label}</span>
     </div>
   );
 }

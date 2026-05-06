@@ -56,23 +56,23 @@ export default async function SessionSavedPage({
     .eq("session_id", s.id);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-50 p-6 text-stone-900">
+    <main className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-md text-center">
-        <div className="mb-6 text-5xl">✓</div>
+        <div className="mb-6 text-5xl text-[var(--lime)]">✓</div>
         <h1 className="mb-2 text-2xl font-light">Session saved</h1>
-        <p className="mb-8 text-sm text-stone-500">
+        <p className="mb-8 text-sm text-[var(--text-faint)]">
           {s.horse?.name ?? "Horse"} · {activityLabel(s.activity_type)}
         </p>
 
-        <dl className="mb-10 space-y-3 rounded-2xl bg-white p-6 text-left shadow-sm">
+        <dl className="mb-10 space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-left">
           <div className="flex justify-between">
-            <dt className="text-sm text-stone-500">Duration</dt>
+            <dt className="text-sm text-[var(--text-faint)]">Duration</dt>
             <dd className="text-sm font-medium tabular-nums">
               {formatDuration(s.start_time, s.end_time)}
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-sm text-stone-500">Samples recorded</dt>
+            <dt className="text-sm text-[var(--text-faint)]">Samples recorded</dt>
             <dd className="text-sm font-medium tabular-nums">{sampleCount ?? 0}</dd>
           </div>
         </dl>
@@ -83,7 +83,7 @@ export default async function SessionSavedPage({
 
         <Link
           href="/home"
-          className="inline-block rounded-md bg-stone-900 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-stone-800"
+          className="inline-block rounded-md bg-[var(--lime)] px-6 py-2.5 text-sm font-medium text-[var(--canvas)] transition hover:opacity-90"
         >
           Done
         </Link>
