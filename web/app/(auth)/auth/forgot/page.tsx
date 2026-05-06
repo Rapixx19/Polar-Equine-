@@ -15,7 +15,7 @@ export default async function ForgotPasswordPage() {
       <div className="w-full max-w-md">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-light tracking-tight">La Fattoria</h1>
-          <p className="mt-1 text-sm text-stone-500">Equine Welfare Study</p>
+          <p className="mt-1 text-sm text-stone-500">Sessions & monitoring</p>
         </header>
 
         <h2 className="mb-3 text-2xl font-light">Reset your password.</h2>

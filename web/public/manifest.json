@@ -1,7 +1,7 @@
 {
   "name": "La Fattoria",
   "short_name": "La Fattoria",
-  "description": "Research data collection for sport-horse welfare",
+  "description": "Sessions & monitoring",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

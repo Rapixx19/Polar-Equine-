@@ -6,13 +6,12 @@ import { useState } from "react";
 export function EmailPasswordForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   const validPassword = password.length >= 6;
-  const canSubmit = validEmail && validPassword && consent && !submitting;
+  const canSubmit = validEmail && validPassword && !submitting;
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -67,19 +66,6 @@ export function EmailPasswordForm() {
         />
       </label>
 
-      <label className="flex cursor-pointer items-start gap-3 text-sm text-stone-700">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(e) => setConsent(e.target.checked)}
-          className="mt-0.5 h-4 w-4 rounded border-stone-400"
-        />
-        <span>
-          I consent to my anonymized session data being used for equine welfare
-          research.
-        </span>
-      </label>
-
       <button
         type="submit"
         disabled={!canSubmit}
@@ -91,8 +77,8 @@ export function EmailPasswordForm() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <p className="text-xs text-stone-500">
-        Don&apos;t have an account yet? Accounts are created by the study admin
-        — reach out and we&apos;ll set you up.
+        Don&apos;t have an account yet? Accounts are created by the admin —
+        reach out and we&apos;ll set you up.
       </p>
 
       <p className="text-xs text-stone-500">

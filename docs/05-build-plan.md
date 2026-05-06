@@ -289,6 +289,10 @@ Expected: `session_ok=1, sample_count>=250, hr_min>=30, hr_max<=220, max_gap_ms<
 
 `WEAK_CORRECTION_RATE = 0.05` in `web/lib/ble/capture-quality.ts` is a starting value. Verified against still-sit (clean) and walk+sit on a human chest (88% good, expected). **Not yet calibrated against rider-on-horse motion.** After ≥3 real rider-on-horse sessions land in production, retrospectively review badge state and tune per Task 5.4 step 3 of the slice plan (`docs/superpowers/plans/2026-05-05-slice-11.75-bluefy-ux.md`). Threshold is not load-bearing; do not treat 0.05 as canonical.
 
+### Slice 11.8 — PWA polish (deferred from Slice 11.7)
+
+- PWA icons (`icon-192.png`, `icon-512.png`, `apple-touch-icon.png`) and cleanup of unused Next.js boilerplate SVGs in `web/public/` (`file.svg`, `globe.svg`, `next.svg`, `vercel.svg`, `window.svg`).
+
 ---
 
 ## Phase 4 — Full sensors (~14–22 hrs)
