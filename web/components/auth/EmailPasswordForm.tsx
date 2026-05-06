@@ -48,7 +48,7 @@ export function EmailPasswordForm() {
           placeholder="email@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-base text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--lime)] focus:outline-none"
         />
       </label>
 
@@ -62,30 +62,30 @@ export function EmailPasswordForm() {
           placeholder="password (≥6 chars)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-base text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--lime)] focus:outline-none"
         />
       </label>
 
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full rounded-md bg-stone-900 px-4 py-3 text-base font-medium text-white transition disabled:cursor-not-allowed disabled:bg-stone-300"
+        className="w-full rounded-md bg-[var(--lime)] px-4 py-3 text-base font-medium text-[var(--canvas)] transition disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
       >
         {submitting ? "Signing in…" : "Continue"}
       </button>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-[var(--red)]">{error}</p>}
 
-      <p className="text-xs text-stone-500">
+      <p className="text-xs text-[var(--text-faint)]">
         Don&apos;t have an account yet? Accounts are created by the admin —
         reach out and we&apos;ll set you up.
       </p>
 
-      <p className="text-xs text-stone-500">
+      <p className="text-xs text-[var(--text-faint)]">
         Forgot your password?{" "}
         <Link
           href="/auth/forgot"
-          className="underline underline-offset-2 hover:text-stone-700"
+          className="underline underline-offset-2 hover:text-[var(--lime)]"
         >
           Reset it
         </Link>

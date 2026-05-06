@@ -14,15 +14,17 @@ export default async function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-50 p-8 text-stone-900">
+    <main className="flex min-h-screen items-center justify-center p-8">
       <div className="w-full max-w-md">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-light tracking-tight">La Fattoria</h1>
-          <p className="mt-1 text-sm text-stone-500">Sessions & monitoring</p>
+          <p className="mt-1 text-sm text-[var(--text-faint)]">
+            Sessions & monitoring
+          </p>
         </header>
 
         <h2 className="mb-3 text-2xl font-light">Set a new password.</h2>
-        <p className="mb-6 text-stone-600">
+        <p className="mb-6 text-[var(--text-muted)]">
           Pick a new password. You&apos;ll be signed in straight after.
         </p>
 

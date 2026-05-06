@@ -21,10 +21,10 @@ export default async function ProvisionPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-stone-50 p-8 text-stone-900">
+    <main className="flex min-h-screen items-center justify-center p-8">
       <div className="w-full max-w-md">
         <h1 className="mb-2 text-2xl font-light">Almost done.</h1>
-        <p className="mb-8 text-stone-600">
+        <p className="mb-8 text-[var(--text-muted)]">
           Pick a display name. You can change it later.
         </p>
         <ProvisionForm />
