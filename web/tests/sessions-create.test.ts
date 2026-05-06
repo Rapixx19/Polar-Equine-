@@ -170,6 +170,27 @@ describe("POST /api/sessions", () => {
     expect(row.riding_subtype).toBeNull();
   });
 
+  it("rejects riding_subtype on non-riding activity_type with 400 (no crash, no insert)", async () => {
+    // Defensive: the DB CHECK constraint (sessions_riding_subtype_check)
+    // would also catch this, but the API MUST reject before reaching the
+    // DB so the response is a clean 400 instead of a 500 PostgREST error.
+    getUserMock.mockReturnValueOnce({ id: RIDER_ID, email: "a@b.dev" });
+    const { POST } = await import("@/app/api/sessions/route");
+
+    const res = await POST(
+      fakeReq({
+        horse_id: HORSE_ID,
+        activity_type: "stall",
+        client_session_id: CLIENT_SESSION_ID,
+        riding_subtype: "heavy_jumping",
+      }),
+    );
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("invalid_request");
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
   it("returns 409 when another rider already has this horse active", async () => {
     insertReturn = {
       data: null,

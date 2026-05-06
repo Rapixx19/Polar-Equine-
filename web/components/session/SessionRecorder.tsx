@@ -8,10 +8,9 @@ import { ConnectionStatus } from "@/components/ble/ConnectionStatus";
 import { PairButton } from "@/components/ble/PairButton";
 import { UnsupportedBanner } from "@/components/ble/UnsupportedBanner";
 import { PreSessionGuard } from "@/components/recording/PreSessionGuard";
-import { activityLabel } from "@/components/session/ActivityTile";
 import { RecorderButtons } from "@/components/session/RecorderButtons";
+import { SessionContextChip } from "@/components/session/SessionContextChip";
 import {
-  RIDING_SUBTYPE_UI,
   type ActivityType,
   type RidingSubtype,
 } from "@/lib/activities";
@@ -83,12 +82,6 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
 
   const isRecording = ingest.state === "recording";
   const isStopping = ingest.state === "stopping";
-  const contextLabel =
-    activity === "other" && activityNote
-      ? activityNote
-      : ridingSubtype
-        ? `${activityLabel(activity)} · ${RIDING_SUBTYPE_UI[ridingSubtype].label}`
-        : activityLabel(activity);
   const showDisconnectBanner = isRecording && connectionState === "disconnected";
   const startDisabled =
     connectionState !== "connected" || ingest.state !== "off";
@@ -97,7 +90,13 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
     <div className="mx-auto w-full max-w-md space-y-4">
       <div>
         <h1 className="text-2xl font-light">Recording for {horse.name}</h1>
-        <p className="mt-1 text-sm text-[var(--text-faint)]">{contextLabel}</p>
+        <div className="mt-2">
+          <SessionContextChip
+            activity={activity}
+            ridingSubtype={ridingSubtype}
+            activityNote={activityNote}
+          />
+        </div>
       </div>
 
       <UnsupportedBanner />
