@@ -4,6 +4,7 @@ import type { ActivityType } from "@/lib/activities";
 
 const ACTIVITY_UI: Record<ActivityType, { emoji: string; label: string }> = {
   riding: { emoji: "🏇", label: "Riding" },
+  lunging: { emoji: "🎯", label: "Lunging" },
   grass_field: { emoji: "🌳", label: "Field" },
   walker: { emoji: "🔄", label: "Walker" },
   stall: { emoji: "🏠", label: "Stall" },

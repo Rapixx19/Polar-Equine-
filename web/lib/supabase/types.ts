@@ -645,6 +645,7 @@ export type Database = {
       }
       sessions: {
         Row: {
+          activity_note: string | null
           activity_type: string
           band_id: string | null
           client_session_id: string | null
@@ -656,11 +657,13 @@ export type Database = {
           metrics_status: string | null
           notes: string | null
           rider_id: string
+          riding_subtype: string | null
           start_time: string
           status: string | null
           updated_at: string | null
         }
         Insert: {
+          activity_note?: string | null
           activity_type: string
           band_id?: string | null
           client_session_id?: string | null
@@ -672,11 +675,13 @@ export type Database = {
           metrics_status?: string | null
           notes?: string | null
           rider_id: string
+          riding_subtype?: string | null
           start_time: string
           status?: string | null
           updated_at?: string | null
         }
         Update: {
+          activity_note?: string | null
           activity_type?: string
           band_id?: string | null
           client_session_id?: string | null
@@ -688,6 +693,7 @@ export type Database = {
           metrics_status?: string | null
           notes?: string | null
           rider_id?: string
+          riding_subtype?: string | null
           start_time?: string
           status?: string | null
           updated_at?: string | null
