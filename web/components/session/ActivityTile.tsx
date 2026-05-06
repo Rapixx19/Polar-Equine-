@@ -21,12 +21,12 @@ export function ActivityTile({ activity }: { activity: ActivityType }) {
   return (
     <Link
       href={`/start/horse?activity=${activity}`}
-      className="flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm transition hover:bg-stone-100 active:bg-stone-200"
+      className="flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-center transition hover:border-[var(--lime)] active:bg-[var(--canvas)]"
     >
       <span aria-hidden className="text-4xl">
         {emoji}
       </span>
-      <span className="text-sm font-medium text-stone-800">{label}</span>
+      <span className="text-sm font-medium text-[var(--text)]">{label}</span>
     </Link>
   );
 }

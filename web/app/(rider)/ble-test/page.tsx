@@ -14,7 +14,7 @@ export default async function BleTestPage() {
   const horses = await getHorsesForRider(supabase);
 
   return (
-    <main className="flex min-h-screen items-start justify-center bg-stone-50 p-6 text-stone-900">
+    <main className="flex min-h-screen items-start justify-center p-6">
       <BleTestPanel horses={horses} />
     </main>
   );

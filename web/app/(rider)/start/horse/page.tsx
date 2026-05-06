@@ -31,16 +31,16 @@ export default async function StartHorsePage({
   const horses = await getHorsesForRider(supabase);
 
   return (
-    <main className="min-h-screen bg-stone-50 p-6 text-stone-900">
+    <main className="min-h-screen p-6">
       <div className="mx-auto w-full max-w-lg">
-        <Link href="/home" className="mb-6 inline-block text-sm text-stone-500 hover:text-stone-700">
+        <Link href="/home" className="mb-6 inline-block text-sm text-[var(--text-muted)] hover:text-[var(--lime)]">
           ← Back
         </Link>
         <h1 className="mb-1 text-2xl font-light">Which horse?</h1>
-        <p className="mb-6 text-sm text-stone-500">{activityLabel(activity)}</p>
+        <p className="mb-6 text-sm text-[var(--text-faint)]">{activityLabel(activity)}</p>
 
         {horses.length === 0 ? (
-          <div className="rounded-2xl bg-white p-6 text-center text-sm text-stone-500 shadow-sm">
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--text-muted)]">
             No horses linked to your rider profile yet. Ask your stable admin to grant access.
           </div>
         ) : (

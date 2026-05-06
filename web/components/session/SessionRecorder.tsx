@@ -85,14 +85,14 @@ export function SessionRecorder({ horse, activity }: Props) {
     <div className="mx-auto w-full max-w-md space-y-4">
       <div>
         <h1 className="text-2xl font-light">Recording for {horse.name}</h1>
-        <p className="mt-1 text-sm text-stone-500">{activityLabel(activity)}</p>
+        <p className="mt-1 text-sm text-[var(--text-faint)]">{activityLabel(activity)}</p>
       </div>
 
       <UnsupportedBanner />
       <PreSessionGuard />
 
       {!isRecording && !isStopping && (
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-[var(--text-muted)]">
           Strap the band on the girth, wet the contact patches, then pair and tap Start.
         </p>
       )}
@@ -121,7 +121,7 @@ export function SessionRecorder({ horse, activity }: Props) {
       )}
 
       {showDisconnectBanner && (
-        <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
           ⚠ Connection lost. Reconnect the band, or tap End to save what we have.
         </div>
       )}
@@ -133,7 +133,7 @@ export function SessionRecorder({ horse, activity }: Props) {
         onEnd={() => void handleEnd()}
       />
 
-      {ingest.error && <p className="text-xs text-red-700">{ingest.error}</p>}
+      {ingest.error && <p className="text-xs text-[var(--red)]">{ingest.error}</p>}
     </div>
   );
 }

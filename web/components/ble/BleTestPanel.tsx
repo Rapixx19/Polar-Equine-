@@ -95,7 +95,7 @@ export function BleTestPanel({ horses }: Props) {
     <div className="mx-auto w-full max-w-md space-y-4">
       <div>
         <h1 className="text-2xl font-light">BLE smoke test</h1>
-        <p className="mt-1 text-sm text-stone-500">
+        <p className="mt-1 text-sm text-[var(--text-faint)]">
           Pair a Polar H10 and watch live HR + R-R intervals. Console logs every beat.
         </p>
       </div>

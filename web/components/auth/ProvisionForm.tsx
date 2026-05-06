@@ -38,7 +38,7 @@ export function ProvisionForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <label className="block">
-        <span className="mb-1 block text-sm text-stone-700">Display name</span>
+        <span className="mb-1 block text-sm text-[var(--text-muted)]">Display name</span>
         <input
           type="text"
           autoComplete="name"
@@ -46,19 +46,19 @@ export function ProvisionForm() {
           maxLength={80}
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-base text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--lime)] focus:outline-none"
         />
       </label>
 
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full rounded-md bg-stone-900 px-4 py-3 text-base font-medium text-white transition disabled:cursor-not-allowed disabled:bg-stone-300"
+        className="w-full rounded-md bg-[var(--lime)] px-4 py-3 text-base font-medium text-[var(--canvas)] transition disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
       >
         {submitting ? "Saving…" : "Continue"}
       </button>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-[var(--red)]">{error}</p>}
     </form>
   );
 }

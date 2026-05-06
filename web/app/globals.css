@@ -1,26 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #0d1410;
+  --surface: #1a2419;
+  --border: #2a352a;
+  --lime: #c8f04c;
+  --red: #ff5252;
+  --text: #e8ebe5;
+  --text-muted: #8e948a;
+  --text-faint: #6b7165;
+  --zone-1: #4a5d3e;
+  --zone-2: #6b8e3e;
+  --zone-3: #c8f04c;
+  --zone-4: #e8a83e;
+  --zone-5: #c44a3e;
+  --background: var(--canvas);
+  --foreground: var(--text);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-border-app: var(--border);
+  --color-lime: var(--lime);
+  --color-red-app: var(--red);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-zone-1: var(--zone-1);
+  --color-zone-2: var(--zone-2);
+  --color-zone-3: var(--zone-3);
+  --color-zone-4: var(--zone-4);
+  --color-zone-5: var(--zone-5);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-jetbrains-mono);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--text);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
 }

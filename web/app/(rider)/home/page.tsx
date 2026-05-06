@@ -23,17 +23,17 @@ export default async function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-stone-50 p-6 text-stone-900">
+    <main className="min-h-screen p-6">
       <div className="mx-auto w-full max-w-lg">
         <header className="mb-6">
-          <p className="text-sm text-stone-500">Hello,</p>
+          <p className="text-sm text-[var(--text-faint)]">Hello,</p>
           <h1 className="text-2xl font-light">{profile.display_name}</h1>
           {profile.is_admin && (
-            <p className="mt-1 text-xs uppercase tracking-wide text-amber-700">Admin</p>
+            <p className="mt-1 text-xs uppercase tracking-wide text-[var(--lime)]">Admin</p>
           )}
         </header>
 
-        <h2 className="mb-3 text-sm font-medium text-stone-600">What is this horse doing?</h2>
+        <h2 className="mb-3 text-sm font-medium text-[var(--text-muted)]">What is this horse doing?</h2>
         <div className="grid grid-cols-2 gap-3">
           {ACTIVITY_TYPES.map((activity) => (
             <ActivityTile key={activity} activity={activity} />

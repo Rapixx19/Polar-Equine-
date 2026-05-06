@@ -46,7 +46,7 @@ export function ResetPasswordForm() {
           placeholder="new password (≥6 chars)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-base text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--lime)] focus:outline-none"
         />
       </label>
 
@@ -60,23 +60,23 @@ export function ResetPasswordForm() {
           placeholder="confirm new password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
-          className="w-full rounded-md border border-stone-300 bg-white px-4 py-3 text-base text-stone-900 placeholder:text-stone-400 focus:border-stone-900 focus:outline-none"
+          className="w-full rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-base text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--lime)] focus:outline-none"
         />
       </label>
 
       {confirm.length > 0 && !matches && (
-        <p className="text-sm text-amber-700">Passwords don&apos;t match.</p>
+        <p className="text-sm text-[var(--red)]">Passwords don&apos;t match.</p>
       )}
 
       <button
         type="submit"
         disabled={!canSubmit}
-        className="w-full rounded-md bg-stone-900 px-4 py-3 text-base font-medium text-white transition disabled:cursor-not-allowed disabled:bg-stone-300"
+        className="w-full rounded-md bg-[var(--lime)] px-4 py-3 text-base font-medium text-[var(--canvas)] transition disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
       >
         {submitting ? "Saving…" : "Set new password"}
       </button>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-[var(--red)]">{error}</p>}
     </form>
   );
 }
