@@ -133,10 +133,6 @@ export function SessionRecorder({ horse, activity }: Props) {
         onEnd={() => void handleEnd()}
       />
 
-      <div className="flex justify-between text-xs text-stone-500">
-        <span>Flushed: {ingest.flushedCount}</span>
-        <span>Dropped: {ingest.droppedCount}</span>
-      </div>
       {ingest.error && <p className="text-xs text-red-700">{ingest.error}</p>}
     </div>
   );

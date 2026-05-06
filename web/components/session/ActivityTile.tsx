@@ -3,12 +3,12 @@ import Link from "next/link";
 import type { ActivityType } from "@/lib/activities";
 
 const ACTIVITY_UI: Record<ActivityType, { emoji: string; label: string }> = {
-  riding: { emoji: "🏇", label: "Riding session" },
-  grass_field: { emoji: "🌳", label: "Field rest" },
+  riding: { emoji: "🏇", label: "Riding" },
+  grass_field: { emoji: "🌳", label: "Field" },
   walker: { emoji: "🔄", label: "Walker" },
-  stall: { emoji: "🏠", label: "Stall rest" },
+  stall: { emoji: "🏠", label: "Stall" },
   transport: { emoji: "🚚", label: "Transport" },
-  vet: { emoji: "🩺", label: "Vet visit" },
+  vet: { emoji: "🩺", label: "Vet" },
   other: { emoji: "✨", label: "Other" },
 };
 

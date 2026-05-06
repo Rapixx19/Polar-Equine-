@@ -15,20 +15,15 @@ export default async function WelcomePage() {
       <div className="w-full max-w-md">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-light tracking-tight">La Fattoria</h1>
-          <p className="mt-1 text-sm text-stone-500">Equine Welfare Study</p>
+          <p className="mt-1 text-sm text-stone-500">Sessions & monitoring</p>
         </header>
 
         <h2 className="mb-3 text-2xl font-light">Welcome.</h2>
         <p className="mb-6 text-stone-600">
-          Sign in with the email and password your study admin set up for you.
+          Sign in with the email and password your admin set up for you.
         </p>
 
         <EmailPasswordForm />
-
-        <p className="mt-8 text-xs leading-relaxed text-stone-500">
-          By using this app you consent to anonymized session data being used
-          for equine welfare research.
-        </p>
       </div>
     </main>
   );
