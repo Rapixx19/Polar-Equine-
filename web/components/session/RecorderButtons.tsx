@@ -13,7 +13,8 @@ type Props = {
 // (slice 11.75 added useCaptureSession + PreSessionGuard + CaptureQualityBadge).
 // No 180-line exemption is invoked — the buttons are a clean, self-contained slice.
 export function RecorderButtons({ state, startDisabled, onStart, onEnd }: Props) {
-  if (state === "off") {
+  if (state === "off" || state === "error") {
+    const label = state === "error" ? "Try again" : "Start session";
     return (
       <button
         type="button"
@@ -21,7 +22,19 @@ export function RecorderButtons({ state, startDisabled, onStart, onEnd }: Props)
         disabled={startDisabled}
         className="w-full rounded-md bg-[var(--lime)] px-5 py-3 text-sm font-medium text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--text-faint)] disabled:opacity-100"
       >
-        Start session
+        {label}
+      </button>
+    );
+  }
+
+  if (state === "starting") {
+    return (
+      <button
+        type="button"
+        disabled
+        className="w-full cursor-not-allowed rounded-md bg-[var(--border)] px-5 py-3 text-sm font-medium text-[var(--text-faint)]"
+      >
+        Starting session…
       </button>
     );
   }

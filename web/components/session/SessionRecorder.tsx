@@ -83,8 +83,11 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
   const isRecording = ingest.state === "recording";
   const isStopping = ingest.state === "stopping";
   const showDisconnectBanner = isRecording && connectionState === "disconnected";
+  // Allow retry from the "error" state — start() short-circuits on an active
+  // batcher, so re-tapping when state==="error" cleanly re-attempts the POST.
   const startDisabled =
-    connectionState !== "connected" || ingest.state !== "off";
+    connectionState !== "connected" ||
+    (ingest.state !== "off" && ingest.state !== "error");
 
   return (
     <div className="mx-auto w-full max-w-md space-y-4">
@@ -149,7 +152,14 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
         onEnd={() => void handleEnd()}
       />
 
-      {ingest.error && <p className="text-xs text-[var(--red)]">{ingest.error}</p>}
+      {ingest.error && (
+        <div
+          role="alert"
+          className="rounded-md border border-[var(--red)] bg-[var(--red)]/10 p-3 text-sm text-[var(--red)]"
+        >
+          {ingest.error}
+        </div>
+      )}
     </div>
   );
 }
