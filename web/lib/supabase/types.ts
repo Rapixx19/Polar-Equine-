@@ -252,11 +252,15 @@ export type Database = {
       }
       horses: {
         Row: {
+          advisory_weekly_cap_override: number | null
           breed: string | null
           created_at: string | null
           created_by: string | null
           date_of_birth: string | null
+          discipline: string | null
           id: string
+          is_holdout: boolean
+          level: string | null
           name: string
           notes: string | null
           owner: string | null
@@ -265,11 +269,15 @@ export type Database = {
           stable_id: string | null
         }
         Insert: {
+          advisory_weekly_cap_override?: number | null
           breed?: string | null
           created_at?: string | null
           created_by?: string | null
           date_of_birth?: string | null
+          discipline?: string | null
           id?: string
+          is_holdout?: boolean
+          level?: string | null
           name: string
           notes?: string | null
           owner?: string | null
@@ -278,11 +286,15 @@ export type Database = {
           stable_id?: string | null
         }
         Update: {
+          advisory_weekly_cap_override?: number | null
           breed?: string | null
           created_at?: string | null
           created_by?: string | null
           date_of_birth?: string | null
+          discipline?: string | null
           id?: string
+          is_holdout?: boolean
+          level?: string | null
           name?: string
           notes?: string | null
           owner?: string | null
@@ -405,27 +417,42 @@ export type Database = {
           created_at: string | null
           display_name: string
           id: string
+          is_active: boolean
           is_admin: boolean | null
+          joined_week: number | null
           preferred_horse_id: string | null
+          primary_discipline: string | null
           total_sessions: number | null
+          weekly_target_override: number | null
+          yard: string | null
         }
         Insert: {
           consented_at?: string | null
           created_at?: string | null
           display_name: string
           id: string
+          is_active?: boolean
           is_admin?: boolean | null
+          joined_week?: number | null
           preferred_horse_id?: string | null
+          primary_discipline?: string | null
           total_sessions?: number | null
+          weekly_target_override?: number | null
+          yard?: string | null
         }
         Update: {
           consented_at?: string | null
           created_at?: string | null
           display_name?: string
           id?: string
+          is_active?: boolean
           is_admin?: boolean | null
+          joined_week?: number | null
           preferred_horse_id?: string | null
+          primary_discipline?: string | null
           total_sessions?: number | null
+          weekly_target_override?: number | null
+          yard?: string | null
         }
         Relationships: [
           {
@@ -721,6 +748,84 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      study_allocation_targets: {
+        Row: {
+          color: string
+          emphasis: string
+          label: string
+          pct: number
+          sort_order: number
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          color: string
+          emphasis: string
+          label: string
+          pct: number
+          sort_order: number
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          emphasis?: string
+          label?: string
+          pct?: number
+          sort_order?: number
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      study_settings: {
+        Row: {
+          advisory_gallop_per_horse_per_week: number
+          advisory_jumping_per_horse_per_week: number
+          advisory_min_hours_between: number
+          advisory_sessions_per_horse_per_week: number
+          id: number
+          realistic_completion: number
+          realistic_qc_pass: number
+          storage_mb_per_session: number
+          storage_migration_trigger_pct: number
+          storage_quota_mb: number
+          updated_at: string
+          v0_phase_weeks: number
+          weekly_target_per_rider: number
+        }
+        Insert: {
+          advisory_gallop_per_horse_per_week?: number
+          advisory_jumping_per_horse_per_week?: number
+          advisory_min_hours_between?: number
+          advisory_sessions_per_horse_per_week?: number
+          id?: number
+          realistic_completion?: number
+          realistic_qc_pass?: number
+          storage_mb_per_session?: number
+          storage_migration_trigger_pct?: number
+          storage_quota_mb?: number
+          updated_at?: string
+          v0_phase_weeks?: number
+          weekly_target_per_rider?: number
+        }
+        Update: {
+          advisory_gallop_per_horse_per_week?: number
+          advisory_jumping_per_horse_per_week?: number
+          advisory_min_hours_between?: number
+          advisory_sessions_per_horse_per_week?: number
+          id?: number
+          realistic_completion?: number
+          realistic_qc_pass?: number
+          storage_mb_per_session?: number
+          storage_migration_trigger_pct?: number
+          storage_quota_mb?: number
+          updated_at?: string
+          v0_phase_weeks?: number
+          weekly_target_per_rider?: number
+        }
+        Relationships: []
       }
     }
     Views: {
