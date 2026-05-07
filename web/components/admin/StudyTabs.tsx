@@ -3,30 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV_ITEMS = [
-  { href: "/admin/sessions", label: "Sessions" },
-  { href: "/admin/horses", label: "Horses" },
-  { href: "/admin/jobs", label: "Jobs" },
-  { href: "/admin/study", label: "Study" },
+const TABS = [
+  { href: "/admin/study/roster", label: "Roster" },
+  { href: "/admin/study/horses", label: "Horses" },
+  { href: "/admin/study/allocation", label: "Allocation" },
 ] as const;
 
-export function AdminNav() {
+export function StudyTabs() {
   const pathname = usePathname() ?? "";
   return (
-    <nav className="flex gap-1 overflow-x-auto whitespace-nowrap text-sm">
-      {NAV_ITEMS.map((item) => {
-        const active = pathname.startsWith(item.href);
+    <nav className="mb-6 flex gap-1 overflow-x-auto whitespace-nowrap border-b border-[var(--border)] pb-2 text-sm">
+      {TABS.map((t) => {
+        const active = pathname.startsWith(t.href);
         return (
           <Link
-            key={item.href}
-            href={item.href}
+            key={t.href}
+            href={t.href}
             className={
               active
                 ? "rounded-md bg-[var(--surface)] px-3 py-1.5 text-[var(--lime)]"
                 : "rounded-md px-3 py-1.5 text-[var(--text-muted)] hover:text-[var(--text)]"
             }
           >
-            {item.label}
+            {t.label}
           </Link>
         );
       })}
