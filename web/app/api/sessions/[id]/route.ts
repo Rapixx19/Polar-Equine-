@@ -48,6 +48,10 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
         status: "completed",
         updated_at: new Date().toISOString(),
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
+        ...(body.horse_feel !== undefined ? { horse_feel: body.horse_feel } : {}),
+        ...(body.cooldown_notes !== undefined
+          ? { cooldown_notes: body.cooldown_notes }
+          : {}),
       })
       .eq("id", id)
       .select("id");
@@ -76,10 +80,17 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     return NextResponse.json({ ok: true, enqueued: true });
   }
 
-  // notes-only branch
+  // subjective-only branch (post-ride edit on saved page)
   const update = await supabase
     .from("sessions")
-    .update({ notes: body.notes, updated_at: new Date().toISOString() })
+    .update({
+      updated_at: new Date().toISOString(),
+      ...(body.notes !== undefined ? { notes: body.notes } : {}),
+      ...(body.horse_feel !== undefined ? { horse_feel: body.horse_feel } : {}),
+      ...(body.cooldown_notes !== undefined
+        ? { cooldown_notes: body.cooldown_notes }
+        : {}),
+    })
     .eq("id", id)
     .select("id");
 

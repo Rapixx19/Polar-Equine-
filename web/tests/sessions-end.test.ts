@@ -163,4 +163,62 @@ describe("PATCH /api/sessions/[id]", () => {
     expect(patch.status).toBeUndefined();
     expect(patch.end_time).toBeUndefined();
   });
+
+  it("ends an active session and persists subjective fields when supplied", async () => {
+    getUserMock.mockReturnValueOnce({ id: "u1", email: "a@b.dev" });
+    const { PATCH } = await import("@/app/api/sessions/[id]/route");
+    const res = await PATCH(
+      fakeReq({
+        action: "end",
+        notes: "trot poles",
+        horse_feel: "forward, willing",
+        cooldown_notes: "breathing settled in 4 min",
+      }),
+      ctx,
+    );
+    expect(res.status).toBe(200);
+    const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.status).toBe("completed");
+    expect(patch.notes).toBe("trot poles");
+    expect(patch.horse_feel).toBe("forward, willing");
+    expect(patch.cooldown_notes).toBe("breathing settled in 4 min");
+  });
+
+  it("updates horse_feel-only without ending", async () => {
+    getUserMock.mockReturnValueOnce({ id: "u1", email: "a@b.dev" });
+    const { PATCH } = await import("@/app/api/sessions/[id]/route");
+    const res = await PATCH(fakeReq({ horse_feel: "tense at start" }), ctx);
+    expect(res.status).toBe(200);
+    const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.horse_feel).toBe("tense at start");
+    expect(patch.notes).toBeUndefined();
+    expect(patch.cooldown_notes).toBeUndefined();
+    expect(patch.status).toBeUndefined();
+  });
+
+  it("updates cooldown_notes-only without ending", async () => {
+    getUserMock.mockReturnValueOnce({ id: "u1", email: "a@b.dev" });
+    const { PATCH } = await import("@/app/api/sessions/[id]/route");
+    const res = await PATCH(fakeReq({ cooldown_notes: "slight off behind" }), ctx);
+    expect(res.status).toBe(200);
+    const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.cooldown_notes).toBe("slight off behind");
+    expect(patch.notes).toBeUndefined();
+    expect(patch.horse_feel).toBeUndefined();
+  });
+
+  it("rejects an empty subjective-only body", async () => {
+    getUserMock.mockReturnValueOnce({ id: "u1", email: "a@b.dev" });
+    const { PATCH } = await import("@/app/api/sessions/[id]/route");
+    const res = await PATCH(fakeReq({}), ctx);
+    expect(res.status).toBe(400);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects horse_feel longer than 2000 chars", async () => {
+    getUserMock.mockReturnValueOnce({ id: "u1", email: "a@b.dev" });
+    const { PATCH } = await import("@/app/api/sessions/[id]/route");
+    const res = await PATCH(fakeReq({ horse_feel: "x".repeat(2001) }), ctx);
+    expect(res.status).toBe(400);
+  });
 });

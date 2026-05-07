@@ -649,8 +649,10 @@ export type Database = {
           activity_type: string
           band_id: string | null
           client_session_id: string | null
+          cooldown_notes: string | null
           created_at: string | null
           end_time: string | null
+          horse_feel: string | null
           horse_id: string
           id: string
           last_ingest_at: string | null
@@ -667,8 +669,10 @@ export type Database = {
           activity_type: string
           band_id?: string | null
           client_session_id?: string | null
+          cooldown_notes?: string | null
           created_at?: string | null
           end_time?: string | null
+          horse_feel?: string | null
           horse_id: string
           id?: string
           last_ingest_at?: string | null
@@ -685,8 +689,10 @@ export type Database = {
           activity_type?: string
           band_id?: string | null
           client_session_id?: string | null
+          cooldown_notes?: string | null
           created_at?: string | null
           end_time?: string | null
+          horse_feel?: string | null
           horse_id?: string
           id?: string
           last_ingest_at?: string | null

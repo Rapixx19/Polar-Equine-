@@ -49,15 +49,30 @@ export const createSessionBody = z
   });
 export type CreateSessionBody = z.infer<typeof createSessionBody>;
 
+// Subjective free-text fields shared by the "end session" call and the
+// post-ride edit form on the saved-session page. All three are independent
+// — the rider can fill any combination on either path.
+const SUBJECTIVE_FIELDS = {
+  notes: z.string().max(2000).optional(),
+  horse_feel: z.string().max(2000).optional(),
+  cooldown_notes: z.string().max(2000).optional(),
+} as const;
+
 const endAction = z.object({
   action: z.literal("end"),
-  notes: z.string().max(2000).optional(),
+  ...SUBJECTIVE_FIELDS,
 });
-const notesOnly = z.object({
-  notes: z.string().max(2000),
-});
+const subjectiveOnly = z
+  .object(SUBJECTIVE_FIELDS)
+  .refine(
+    (v) =>
+      v.notes !== undefined ||
+      v.horse_feel !== undefined ||
+      v.cooldown_notes !== undefined,
+    { message: "at least one of notes / horse_feel / cooldown_notes is required" },
+  );
 
-export const patchSessionBody = z.union([endAction, notesOnly]);
+export const patchSessionBody = z.union([endAction, subjectiveOnly]);
 export type PatchSessionBody = z.infer<typeof patchSessionBody>;
 
 export const sessionIdParam = z.string().uuid();

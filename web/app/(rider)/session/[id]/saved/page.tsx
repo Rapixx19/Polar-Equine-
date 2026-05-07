@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { activityLabel } from "@/components/session/ActivityTile";
 import { QualitySummary } from "@/components/session/QualitySummary";
+import { SessionNotesForm } from "@/components/session/SessionNotesForm";
 import type { ActivityType } from "@/lib/activities";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import {
@@ -27,7 +28,9 @@ export default async function SessionSavedPage({
 
   const { data: sessionRow } = await supabase
     .from("sessions")
-    .select("id, activity_type, start_time, end_time, status, horse:horses(name)")
+    .select(
+      "id, activity_type, start_time, end_time, status, notes, horse_feel, cooldown_notes, horse:horses(name)",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -80,6 +83,15 @@ export default async function SessionSavedPage({
         <div className="mb-6">
           <QualitySummary sessionId={s.id} />
         </div>
+
+        <SessionNotesForm
+          sessionId={s.id}
+          initial={{
+            notes: (sessionRow?.notes as string | null) ?? null,
+            horse_feel: (sessionRow?.horse_feel as string | null) ?? null,
+            cooldown_notes: (sessionRow?.cooldown_notes as string | null) ?? null,
+          }}
+        />
 
         <Link
           href="/home"
