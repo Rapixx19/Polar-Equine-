@@ -1,12 +1,23 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import { EmailPasswordForm } from "@/components/auth/EmailPasswordForm";
+import { isAdminHost } from "@/lib/proxy/admin-host";
 
 export default async function WelcomePage() {
   const supabase = await createServerSupabaseClient();
   const user = await getUser(supabase);
   if (user) {
+    const h = await headers();
+    if (isAdminHost(h.get("host"))) {
+      const { data: profile } = await supabase
+        .from("rider_profiles")
+        .select("is_admin")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile?.is_admin) redirect("/admin/sessions");
+    }
     redirect("/home");
   }
 

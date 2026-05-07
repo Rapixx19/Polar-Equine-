@@ -193,6 +193,7 @@ describe("getSessionDetail", () => {
     expect(result!.metrics?.hr_avg).toBe(110);
     expect(result!.jobs).toHaveLength(1);
     expect(result!.samplesPreview).toHaveLength(1);
+    expect(result!.samplesForChart).toHaveLength(1);
     expect(result!.sampleCount).toBe(1);
 
     const tablesUsed = new Set(calls.map((c) => c.table));
@@ -200,6 +201,13 @@ describe("getSessionDetail", () => {
     expect(tablesUsed.has("session_metrics")).toBe(true);
     expect(tablesUsed.has("compute_jobs")).toBe(true);
     expect(tablesUsed.has("samples_hr")).toBe(true);
+
+    const sampleRangeCalls = calls.filter(
+      (c) => c.table === "samples_hr" && c.method === "range",
+    );
+    const ranges = sampleRangeCalls.map((c) => c.args);
+    expect(ranges).toContainEqual([0, 99]);
+    expect(ranges).toContainEqual([0, 4999]);
   });
 
   it("caps samples preview at 100 rows via .range(0, 99)", async () => {

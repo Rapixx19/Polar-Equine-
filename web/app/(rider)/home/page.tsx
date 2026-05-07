@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { Avatar } from "@/components/Avatar";
@@ -10,6 +11,7 @@ import { ActivityTile } from "@/components/session/ActivityTile";
 import { ACTIVITY_TYPES } from "@/lib/activities";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import { fetchHomeSummary } from "@/lib/home/home-summary";
+import { isAdminHost } from "@/lib/proxy/admin-host";
 
 export default async function HomePage() {
   const supabase = await createServerSupabaseClient();
@@ -26,6 +28,11 @@ export default async function HomePage() {
 
   if (!profile) {
     redirect("/auth/provision");
+  }
+
+  const h = await headers();
+  if (profile.is_admin && isAdminHost(h.get("host"))) {
+    redirect("/admin/sessions");
   }
 
   const summary = await fetchHomeSummary(supabase, user.id);

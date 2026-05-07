@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { HrChart } from "@/components/admin/HrChart";
 import { JobsCard } from "@/components/admin/JobsCard";
 import { MetricsCard } from "@/components/admin/MetricsCard";
 import { SamplesPreview } from "@/components/admin/SamplesPreview";
@@ -42,7 +43,7 @@ export default async function AdminSessionDetailPage({
   const detail = await getSessionDetail(supabase, id);
   if (!detail) redirect("/admin/sessions");
 
-  const { session, metrics, jobs, sampleCount, samplesPreview } = detail;
+  const { session, metrics, jobs, sampleCount, samplesPreview, samplesForChart } = detail;
   const riderLabel =
     session.rider?.display_name?.trim() ??
     `rider_${session.rider_id.slice(0, 8)}`;
@@ -94,6 +95,13 @@ export default async function AdminSessionDetailPage({
           Compute jobs
         </h2>
         <JobsCard jobs={jobs} />
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[var(--text-muted)]">
+          HR over time
+        </h2>
+        <HrChart samples={samplesForChart} totalSamples={sampleCount} />
       </section>
 
       <section>

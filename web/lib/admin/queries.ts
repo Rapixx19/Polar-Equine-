@@ -11,6 +11,7 @@ import type { TypedSupabaseClient } from "@/lib/auth/server";
 const SESSIONS_PAGE_SIZE = 50;
 const JOBS_PAGE_SIZE = 25;
 const SAMPLES_PREVIEW_LIMIT = 100;
+const SAMPLES_CHART_LIMIT = 5000;
 
 export type AdminSessionRow = {
   id: string;
@@ -39,6 +40,11 @@ export type AdminSessionDetail = {
     timestamp_ms: number;
     hr_bpm: number | null;
     rr_ms: number | null;
+    contact: boolean | null;
+  }>;
+  samplesForChart: Array<{
+    timestamp_ms: number;
+    hr_bpm: number | null;
     contact: boolean | null;
   }>;
 };
@@ -151,7 +157,7 @@ export async function getSessionDetail(
 ): Promise<AdminSessionDetail | null> {
   const sessionDetailSelect = `id, horse_id, rider_id, activity_type, riding_subtype, activity_note, start_time, end_time, status, metrics_status, notes, horse:horses(id, name), rider:rider_profiles(id, display_name)`;
 
-  const [sessionRes, metricsRes, jobsRes, sampleCountRes, samplesRes] = await Promise.all([
+  const [sessionRes, metricsRes, jobsRes, sampleCountRes, samplesRes, chartRes] = await Promise.all([
     supabase.from("sessions").select(sessionDetailSelect).eq("id", sessionId).maybeSingle(),
     supabase.from("session_metrics").select("*").eq("session_id", sessionId).maybeSingle(),
     supabase
@@ -169,6 +175,12 @@ export async function getSessionDetail(
       .eq("session_id", sessionId)
       .order("timestamp_ms", { ascending: true })
       .range(0, SAMPLES_PREVIEW_LIMIT - 1),
+    supabase
+      .from("samples_hr")
+      .select("timestamp_ms, hr_bpm, contact")
+      .eq("session_id", sessionId)
+      .order("timestamp_ms", { ascending: true })
+      .range(0, SAMPLES_CHART_LIMIT - 1),
   ]);
 
   if (!sessionRes.data) return null;
@@ -186,6 +198,8 @@ export async function getSessionDetail(
     sampleCount: sampleCountRes.count ?? 0,
     samplesPreview:
       ((samplesRes.data as AdminSessionDetail["samplesPreview"] | null) ?? []),
+    samplesForChart:
+      ((chartRes.data as AdminSessionDetail["samplesForChart"] | null) ?? []),
   };
 }
 
