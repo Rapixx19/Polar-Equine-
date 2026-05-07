@@ -113,6 +113,29 @@ export default async function AdminSessionDetailPage({
 
       <section>
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[var(--text-muted)]">
+          Download raw data
+        </h2>
+        <div className="flex flex-wrap gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] p-4">
+          <a
+            href={`/api/admin/sessions/${session.id}/samples.csv`}
+            className="rounded-md bg-[var(--lime)] px-4 py-2 text-sm font-medium text-[var(--canvas)] hover:opacity-90"
+          >
+            Samples (CSV)
+          </a>
+          <a
+            href={`/api/admin/sessions/${session.id}/metadata.json`}
+            className="rounded-md border border-[var(--border)] px-4 py-2 text-sm text-[var(--text)] hover:border-[var(--lime)]"
+          >
+            Metadata + metrics (JSON)
+          </a>
+          <p className="basis-full pt-1 text-xs text-[var(--text-faint)]">
+            Samples CSV is straight from <code>samples_hr</code> — one row per beat (timestamp_ms, hr_bpm, rr_ms, contact). No smoothing, no filtering. Metadata JSON includes the session row, all <code>session_metrics</code>, and the <code>compute_jobs</code> log.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[var(--text-muted)]">
           Manual actions
         </h2>
         <div className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-4 text-xs text-[var(--text-muted)]">
