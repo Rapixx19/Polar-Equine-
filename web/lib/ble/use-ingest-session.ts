@@ -5,6 +5,7 @@ import { useCallback, useRef, useState } from "react";
 import { HRBatcher } from "@/lib/ble/batcher";
 import type { HRSample } from "@/lib/ble/hr-codec";
 import type { ActivityType, RidingSubtype } from "@/lib/activities";
+import { classifyStartError, startErrorMessage } from "@/lib/ble/start-error";
 
 export type IngestState = "off" | "starting" | "recording" | "stopping" | "error";
 
@@ -52,12 +53,19 @@ export function useIngestSession() {
         body: JSON.stringify(body),
       });
     } catch {
-      setError("Couldn't start session.");
+      setError(startErrorMessage(classifyStartError(null, null)));
       setState("error");
       return;
     }
     if (!res.ok) {
-      setError("Couldn't start session.");
+      // Best-effort to read the API's error code; if the body isn't JSON we
+      // still classify by status alone so the rider sees a useful message.
+      const errCode = await res
+        .clone()
+        .json()
+        .then((j: unknown) => (j as { error?: string } | null)?.error ?? null)
+        .catch(() => null);
+      setError(startErrorMessage(classifyStartError(res.status, errCode)));
       setState("error");
       return;
     }
