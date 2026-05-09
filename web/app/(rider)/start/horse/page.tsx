@@ -11,7 +11,7 @@ import {
   type RidingSubtype,
 } from "@/lib/activities";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
-import { getHorsesForRider } from "@/lib/horses/server";
+import { autoRouteUrl, getHorsesForRider } from "@/lib/horses/server";
 
 const NOTE_MAX = 200;
 
@@ -67,6 +67,14 @@ export default async function StartHorsePage({
   }
 
   const horses = await getHorsesForRider(supabase);
+
+  // Slice 12.A: a rider with exactly one horse should never see the picker.
+  // Centralising the redirect here means all three entry points (direct,
+  // sub-type picker, custom-note) inherit the auto-route automatically.
+  const skipUrl = autoRouteUrl(horses, { activity, subtype, note });
+  if (skipUrl) {
+    redirect(skipUrl);
+  }
 
   const sessionTag =
     activity === "other" && note
