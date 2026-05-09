@@ -11,7 +11,12 @@ import {
   type RidingSubtype,
 } from "@/lib/activities";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
-import { autoRouteUrl, getHorsesForRider } from "@/lib/horses/server";
+import {
+  autoRouteUrl,
+  getHorsesForRider,
+  getRiderPreferredHorseId,
+  sortHorsesWithPreferred,
+} from "@/lib/horses/server";
 
 const NOTE_MAX = 200;
 
@@ -66,7 +71,11 @@ export default async function StartHorsePage({
     redirect("/");
   }
 
-  const horses = await getHorsesForRider(supabase);
+  const [horses, preferredHorseId] = await Promise.all([
+    getHorsesForRider(supabase),
+    getRiderPreferredHorseId(supabase, user.id),
+  ]);
+  const sortedHorses = sortHorsesWithPreferred(horses, preferredHorseId);
 
   // Slice 12.A: a rider with exactly one horse should never see the picker.
   // Centralising the redirect here means all three entry points (direct,
@@ -95,15 +104,21 @@ export default async function StartHorsePage({
         <p className="mb-1 text-xs uppercase tracking-wide text-[var(--text-faint)]">{sessionTag}</p>
         <h1 className="mb-6 text-2xl font-light">Which horse?</h1>
 
-        {horses.length === 0 ? (
+        {sortedHorses.length === 0 ? (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--text-muted)]">
             No horses linked to your rider profile yet. Ask your stable admin to grant access.
           </div>
         ) : (
           <ul className="space-y-3">
-            {horses.map((horse) => (
+            {sortedHorses.map((horse) => (
               <li key={horse.id}>
-                <HorseTile horse={horse} activity={activity} subtype={subtype} note={note} />
+                <HorseTile
+                  horse={horse}
+                  activity={activity}
+                  subtype={subtype}
+                  note={note}
+                  isPreferred={horse.isPreferred}
+                />
               </li>
             ))}
           </ul>

@@ -74,5 +74,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "create_failed" }, { status: 500 });
   }
 
+  // Slice 12.B: remember this horse as the rider's last-used horse so the
+  // /start/horse picker hoists it on next visit. Fire-and-forget: a failure
+  // here (RLS, transient DB) MUST NOT block the session response — UX > a
+  // perfectly-fresh preferred-horse field. The next successful session will
+  // simply retry the update.
+  try {
+    const { error: prefError } = await supabase
+      .from("rider_profiles")
+      .update({ preferred_horse_id: body.horse_id })
+      .eq("id", user.id);
+    if (prefError) {
+      console.error("update_preferred_horse_failed", {
+        code: prefError.code,
+        message: prefError.message,
+      });
+    }
+  } catch (err) {
+    console.error("update_preferred_horse_threw", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return NextResponse.json({ id: insert.data.id, start_time: insert.data.start_time });
 }
