@@ -1,27 +1,16 @@
-// Footer nav placeholder for Slice 11.8. Both items render visually but
-// are inert (aria-disabled, no-op onClick). Real "All sessions" + "Settings"
-// pages land in a later slice.
-"use client";
+// Footer nav. Slice 12.D wired both items to real (stub) routes; the full
+// pages ship in a later slice but the links are no longer dead buttons.
+import Link from "next/link";
 
 export function Footer() {
   return (
     <footer className="mt-10 flex justify-center gap-8 border-t border-[var(--border)] pt-4 text-sm text-[var(--text-faint)]">
-      <button
-        type="button"
-        aria-disabled="true"
-        onClick={(e) => e.preventDefault()}
-        className="cursor-not-allowed transition hover:text-[var(--text-muted)]"
-      >
+      <Link href="/sessions" className="transition hover:text-[var(--text-muted)]">
         All sessions
-      </button>
-      <button
-        type="button"
-        aria-disabled="true"
-        onClick={(e) => e.preventDefault()}
-        className="cursor-not-allowed transition hover:text-[var(--text-muted)]"
-      >
+      </Link>
+      <Link href="/settings" className="transition hover:text-[var(--text-muted)]">
         Settings
-      </button>
+      </Link>
     </footer>
   );
 }
