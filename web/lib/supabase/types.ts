@@ -727,11 +727,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_admin_check: { Args: never; Returns: boolean }
       create_horse_for_self: {
         Args: { p_name: string }
-        Returns: { id: string; name: string }[]
+        Returns: {
+          id: string
+          name: string
+        }[]
       }
+      is_admin_check: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
