@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { AddHorseDialog } from "@/components/session/AddHorseDialog";
 import { HorseTile } from "@/components/session/HorseTile";
 import { activityLabel } from "@/components/session/ActivityTile";
 import {
@@ -106,7 +107,7 @@ export default async function StartHorsePage({
 
         {sortedHorses.length === 0 ? (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--text-muted)]">
-            No horses linked to your rider profile yet. Ask your stable admin to grant access.
+            No horses linked to your rider profile yet. Add one below or ask your stable admin to grant access.
           </div>
         ) : (
           <ul className="space-y-3">
@@ -123,6 +124,8 @@ export default async function StartHorsePage({
             ))}
           </ul>
         )}
+
+        <AddHorseDialog />
       </div>
     </main>
   );
