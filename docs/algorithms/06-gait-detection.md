@@ -1,312 +1,202 @@
 # algorithms/06 · Gait Detection
 
+> **Status:** spec rewritten 2026-05-12 to reflect the equine gait classification literature review. Prior spec assumed 52 Hz ACC + single-band threshold classifier — both are corrected here.
+
 ## Feature scope
 
-Auto-detect walk / trot / canter-gallop / jump segments from the Polar H10's built-in accelerometer (52 Hz). Rule-based classifier using FFT in rolling windows. The output is what the rider reviews and corrects in the PWA.
+Classify each session window as **halt / walk / trot / canter-gallop / mixed**, plus a separate jump-event detector. Output writes to `gait_segments` rows for the admin dashboard and `label_corrections` ground-truth via the rider quick-label UI. Algorithm runs server-side in `algo/algorithms/gait.py` on Railway. No on-device inference.
+
+Honest expected accuracy on Polar H10 Equine chest-girth placement: **78–85% balanced accuracy** on walk / trot / canter, with trot the weakest class (~75–82%). Walk and canter are easier. Jump detection is reliable; jump type classification is not.
+
+The number is grounded in:
+- [Sageder et al. 2025 *Animals*](https://pmc.ncbi.nlm.nih.gov/articles/PMC12024389/) — rider-worn chest accel hit 71.4% (4 classes), best ensemble 89.7%. Horse-mounted chest girth sees gait signal directly, not damped through a rider, so we sit between these.
+- [*Sensors* 2023 review](https://pmc.ncbi.nlm.nih.gov/articles/PMC10386433/) — single-IMU accel-only ceilings vs multi-IMU with gyro.
+- [Rana & Mittal 2025](https://pmc.ncbi.nlm.nih.gov/articles/PMC9817528/) — phone-in-pocket BiLSTM hit 94.4% with gyro available. We don't have gyro on H10, so subtract ~10 pp.
+
+## Hardware input contract
+
+This is the floor any sensor must meet for the classifier to work without retraining.
+
+| Spec | Value | Source |
+|---|---|---|
+| Modality | 3-axis accelerometer | Polar H10 PMD `ACC` stream |
+| Sample rate | ≥ 50 Hz (V.0: 200 Hz, downsampled internally) | Trot fundamental ~3 Hz; Nyquist + headroom |
+| Range | ≥ ±8 G | Canter peak vertical impulse ~4 G; jumps up to ~6 G |
+| Word size | int16 minimum | H10 native; supports range above |
+| Axis alignment | Arbitrary (girth strap rotates over session) | Pipeline uses vector magnitude ‖a‖ — orientation-invariant |
+| Gyroscope | Not required | H10 has none; classifier compensates with autocorrelation features |
+
+**V.1 custom band substitution:** as long as the new band exposes ≥ 50 Hz tri-axial accel at ≥ ±8 G, this classifier deploys unchanged. If the band adds magnetometer (`mag`) the pipeline can gain ~3–5 pp via orientation tracking — but this is an enhancement path, not a precondition. See `docs/V1_BACKLOG.md` → "V.1 custom-band sensors".
+
+The H10 accelerometer itself is scientifically validated for sports use: static error 2.6–4.3% vs gravity reference, dynamic correlations 0.888–0.954 vs gold-standard ([Riemer et al. 2022 *Engineering Proceedings*](https://www.mdpi.com/2673-4591/27/1/71)).
+
+## Pipeline
+
+```
+200 Hz tri-axial ACC chunks (Supabase Storage signal-blobs/)
+        ↓
+Decode binary chunks into (t_ms, ax, ay, az) per session
+        ↓
+Anti-alias filter (FIR low-pass at 25 Hz)
+        ↓
+Downsample 200 Hz → 50 Hz
+        ↓
+Bandpass 0.3–20 Hz (drop DC drift + high-frequency vibration)
+        ↓
+Vector magnitude ‖a‖ = √(ax² + ay² + az²)
+        ↓
+Sliding 2-second windows with 50% overlap (100 samples/window @ 50 Hz)
+        ↓
+Per-window feature vector (~15 dim):
+   • Time domain: mean, std, RMS, signal-magnitude-area, zero-crossing rate
+   • Frequency: dominant freq in 0.5–6 Hz band, spectral entropy
+   • Band power: 0–1 Hz, 1–2.5 Hz, 2.5–4 Hz, 4–6 Hz
+   • Autocorrelation: peak lag (stride period, robust where FFT noisy)
+   • Variance of |a| derivative (impulse roughness)
+        ↓
+Random Forest (200 trees, max_depth 10) — multi-class
+        ↓
+Per-window confidence + label: halt | walk | trot | canter | mixed
+        ↓
+3-window majority-vote smoothing (recovers 2–5 pp)
+        ↓
+Merge contiguous same-label windows → gait_segments rows
+        ↓
++ Separate one-vs-rest jump detector (vertical impulse > 3 G followed by
+  free-fall signature ‖a‖ → near 0) — runs in parallel, not part of RF
+```
+
+**Why Random Forest, not deep learning:**
+- The 2025 SHAP/XAI paper hit 82.3% accuracy on accel-only neck data with RF — directly matching our target band.
+- ConvLSTM2D on chest-mounted data hit only 71.4% (Sageder 2025) and requires 32K parameters + GPU.
+- RF is interpretable (feature importance ranks publishable in thesis), trains in seconds, runs in microseconds, and produces calibrated confidences.
+
+**Why 2 s / 50% overlap:**
+- Kamminga "Horsing Around" dataset is published at 2-second windows.
+- Trot stride period ~0.6 s; 2 s captures 3+ strides — enough for stable FFT.
+- 50% overlap is the modal choice in IMU classification literature.
+
+**Why downsample 200 → 50 Hz:**
+- Gait fundamentals are 0.5–4 Hz; even canter harmonics rarely matter above 20 Hz.
+- 4× CPU saving without information loss.
+- Matches V.1 band IMU floor — no retraining if hardware substitutes.
+
+## Validation plan
+
+**Stage 1 — Public dataset (before any rider data):**
+
+Use the [Kamminga "Horsing Around" dataset](https://data.4tu.nl/articles/dataset/Horsing_Around_-_A_Dataset_Comprising_Horse_Movement/12687551) (CC0 license, 18 horses, 100 Hz neck-mounted IMU, 1.2M 2-second samples, 93,303 labeled). Train + cross-validate. Target: **≥78% balanced accuracy** on walk / trot / canter on a held-out horse split (between-horse generalisation, not within-horse).
+
+Stage 1 lives in `algo/algorithms/gait_kamminga_validation.py`. It is a one-shot script, not part of the runtime path.
+
+**Stage 2 — Rider-labeled H10 sessions:**
+
+Once Slice 15 quick-label UI ships and we accumulate ≥10 sessions with rider labels, retrain (or fine-tune feature thresholds) on H10 chest-girth data. Target: **≥75% balanced accuracy** on a horse-held-out split. The 3 pp drop vs neck-collar is the documented placement penalty.
+
+If Stage 2 falls below 70%, kill switch: classifier becomes "moving / not moving" binary, rider quick-label provides all gait labels manually. Document the failure mode honestly in the thesis methods chapter.
+
+## Output schema
+
+```python
+@dataclass
+class GaitSegment:
+    session_id: UUID
+    start_ms: int
+    end_ms: int
+    label: Literal['halt', 'walk', 'trot', 'canter', 'mixed', 'jump']
+    confidence: float           # 0..1 from RF predict_proba (or jump detector)
+    jump_count: int = 0         # populated only for label='jump'
+    algo_version: str           # bumped on every algorithm change (Rule 13)
+    source: Literal['algorithm', 'rider_correction']
+```
+
+Writes to `gait_segments` table. Rider corrections from the quick-label UI write `label_corrections` rows that **shadow** but don't overwrite the algorithm output — Rule 8, raw data is sacred, including raw algorithm output.
+
+## Failure modes documented in the literature
+
+| Issue | Behaviour | Mitigation |
+|---|---|---|
+| Rider weight transfer creates 0.5–2 Hz artefacts overlapping walk | Walk over-predicted in active riding | Vector magnitude (rider-invariant vs per-axis); train on multi-rider data |
+| Individual horse rhythm varies ±15% | Cross-horse accuracy 5–10 pp lower than within-horse | Per-horse calibration after 1–2 labeled sessions; document in onboarding |
+| Girth strap rotation over 45-min session | Per-axis features drift | Magnitude-based; periodic gravity recalibration during detected halts |
+| Walk → trot, trot → canter transition windows | 30–50% of all errors live here | Report performance on stationary segments separately; HMM smoothing |
+| Surface change (sand vs grass vs hard) | Vertical impulse shifts 10–20% | Train on surfaces we'll deploy on; document surface metadata per session |
+| Class imbalance (~60% walk / 25% trot / 12% canter / 3% other) | Raw accuracy misleading | Always report balanced accuracy + per-class F1 |
+| Canter vs gallop separability | Chest accel can't reliably split them | Merged for V.0; stride-frequency threshold at ~3.5 Hz noted as V.1 path |
+| Short session (< window length) | Returns empty list | Rider labels manually via quick-label UI |
 
 ## Public interface
 
 ```python
-# algorithms/gait_detection.py
+# algo/algorithms/gait.py
 
 from dataclasses import dataclass
+from typing import Literal
 import numpy as np
 import pandas as pd
 
-LabelType = str  # 'walk' | 'trot' | 'canter_gallop' | 'jump' | 'rest' | 'other'
+ALGO_VERSION = "gait-0.1.0"   # bumped on every change per Rule 13
 
 @dataclass
 class GaitConfig:
-    window_s: float = 4.0                # FFT window
-    overlap: float = 0.5                  # 50% overlap
-    
-    # Frequency bands (Hz) — equine stride frequency
-    walk_band: tuple = (0.8, 1.2)
-    trot_band: tuple = (1.3, 1.7)
-    canter_band: tuple = (1.8, 2.5)
-    
-    # Jump detection
-    jump_peak_min_g: float = 3.0          # spike threshold
-    jump_min_separation_s: float = 1.0    # combine close peaks
-    
-    # Smoothing
-    median_filter_windows: int = 3        # post-classification median filter
-    min_segment_s: float = 5.0            # discard segments shorter than this
-    
-@dataclass
-class GaitSegment:
-    start_ms: int
-    end_ms: int
-    label_type: LabelType
-    confidence: float                     # 0..1
-    jump_count: int = 0                   # populated for jump segments
+    window_s: float = 2.0
+    overlap: float = 0.5
+    target_fs_hz: float = 50.0
+    bandpass_hz: tuple[float, float] = (0.3, 20.0)
+    rf_n_estimators: int = 200
+    rf_max_depth: int = 10
+    smoothing_windows: int = 3            # majority-vote kernel size
+    jump_peak_min_g: float = 3.0
+    jump_min_separation_s: float = 1.0
 
 
 def detect_gaits(
     acc_samples: pd.DataFrame,            # columns: t_ms, ax, ay, az
     config: GaitConfig = GaitConfig(),
+    model_path: str = "models/gait_rf_v0.1.joblib",
 ) -> list[GaitSegment]:
     """
-    Auto-detect gait segments from triaxial accelerometer.
-    
-    Pipeline:
-    1. Compute |a| = sqrt(ax² + ay² + az²) — orientation-invariant
-    2. Detrend by subtracting 1 g (gravity)
-    3. Window 4s with 50% overlap
-    4. Per window, FFT → identify dominant frequency in 0.5–4 Hz band
-    5. Classify window:
-       - rest: dominant peak power < threshold
-       - walk: 0.8 ≤ f_dom ≤ 1.2
-       - trot: 1.3 ≤ f_dom ≤ 1.7
-       - canter_gallop: 1.8 ≤ f_dom ≤ 2.5
-       - other: otherwise
-    6. Confidence = peak_power / total_power in band
-    7. Median-filter the per-window labels (removes single-window noise)
-    8. Merge contiguous same-label windows into segments
-    9. Drop segments shorter than min_segment_s
-    10. Run separate jump detection pass: peaks > 3 g in |a| derivative
-    
-    Equine stride frequency literature (per gait, both directions of stride):
-    - Walk:    ~0.9 Hz (1 stride/1.1 s) — Pfau 2007 confirmed
-    - Trot:    ~1.5 Hz — Robilliard 2007
-    - Canter:  ~2.0 Hz
-    - Gallop:  ~2.3 Hz (lumped with canter for V.0)
-    - Jump:    transient g-spike, no characteristic frequency
-    
-    The H10 sits on the girth area, so the dominant axis varies with how the
-    band is positioned. Using magnitude rather than per-axis avoids needing
-    a calibration step.
-    
-    For V.0 we use rule-based classification because:
-    - Equine literature gives clear frequency separations
-    - Riders correct anything wrong in PWA → builds labelled dataset
-    - Provides interpretable algorithm for thesis methodology
-    - V.1 swaps in trained model trained on rider-labelled data
-    
+    Detect gait segments from chest-mounted triaxial accelerometer.
+    See pipeline description above. Loads a pre-trained RF from disk;
+    the training script lives in algo/scripts/train_gait_rf.py.
+
     References:
-    - Pfau et al. 2007 J Exp Biol 210:1063 (stride frequencies in trot)
-    - Robilliard et al. 2007 Equine Vet J 39:154 (gait classification baseline)
-    - Maisonpierre et al. 2019 J Equine Vet Sci 75:25 (IMU-based gait classifier)
-    - Bosch et al. 2018 Sensors 18:4218 (accelerometry for equine activity)
+    - Sageder et al. 2025 Animals 15(8):1080 — rider-worn placement comparison
+    - Sensors 2023 23(14):6301 — equine IMU gait analysis review
+    - Rana & Mittal 2025 Proc IMechE P J Sports Eng — five-gaited classification
+    - Eerdekens et al. 2020 Comput Electron Agric 168:105139 — collar CNN
+    - Kamminga et al. 2019 Data 4(4):131 — public horse movement dataset (CC0)
+    - Bragança et al. 2017 Equine Vet J 49:545 — distal-limb stride detection
+    - Riemer et al. 2022 Eng Proc 27:71 — Polar H10 accel validation
     """
-    if len(acc_samples) < 100:
-        return []
-    
-    # Step 1-2: magnitude with gravity removed
-    a_mag = np.sqrt(
-        acc_samples["ax"].values ** 2
-        + acc_samples["ay"].values ** 2
-        + acc_samples["az"].values ** 2
-    ) - 1.0  # roughly remove gravity
-    
-    # Estimate sampling rate from timestamps
-    t_ms = acc_samples["t_ms"].values
-    fs = 1000.0 / np.median(np.diff(t_ms))
-    
-    # Step 3-6: windowed FFT classification
-    window_n = int(config.window_s * fs)
-    step_n = int(window_n * (1 - config.overlap))
-    windows = []
-    
-    for start in range(0, len(a_mag) - window_n, step_n):
-        chunk = a_mag[start:start + window_n]
-        f_dom, confidence = _dominant_frequency(chunk, fs, band=(0.5, 4.0))
-        label = _classify(f_dom, confidence, config)
-        
-        windows.append({
-            "start_ms": int(t_ms[start]),
-            "end_ms": int(t_ms[start + window_n - 1]),
-            "label": label,
-            "confidence": confidence,
-            "f_dom": f_dom,
-        })
-    
-    # Step 7: median filter labels
-    labels = _median_filter_labels(
-        [w["label"] for w in windows],
-        k=config.median_filter_windows,
-    )
-    for w, l in zip(windows, labels):
-        w["label"] = l
-    
-    # Step 8: merge contiguous
-    segments = _merge_contiguous(windows)
-    
-    # Step 9: drop short
-    segments = [s for s in segments if (s.end_ms - s.start_ms) / 1000.0 >= config.min_segment_s]
-    
-    # Step 10: jump pass on top
-    jumps = _detect_jumps(acc_samples, config)
-    segments.extend(jumps)
-    segments.sort(key=lambda s: s.start_ms)
-    
-    return segments
-
-
-def _dominant_frequency(chunk, fs, band):
-    """Welch periodogram, return (peak_freq, confidence)."""
-    from scipy.signal import welch
-    f, p = welch(chunk, fs=fs, nperseg=min(256, len(chunk)))
-    band_mask = (f >= band[0]) & (f <= band[1])
-    if not band_mask.any():
-        return 0.0, 0.0
-    band_p = p[band_mask]
-    band_f = f[band_mask]
-    peak_idx = np.argmax(band_p)
-    confidence = float(band_p[peak_idx] / max(band_p.sum(), 1e-9))
-    return float(band_f[peak_idx]), confidence
-
-
-def _classify(f_dom: float, confidence: float, config) -> str:
-    """Rule-based classification."""
-    if confidence < 0.15:
-        return "rest"
-    if config.walk_band[0] <= f_dom <= config.walk_band[1]:
-        return "walk"
-    if config.trot_band[0] <= f_dom <= config.trot_band[1]:
-        return "trot"
-    if config.canter_band[0] <= f_dom <= config.canter_band[1]:
-        return "canter_gallop"
-    return "other"
-
-
-def _median_filter_labels(labels: list[str], k: int) -> list[str]:
-    """Replace each label with the mode of its k-window neighborhood."""
-    from collections import Counter
-    out = list(labels)
-    half = k // 2
-    for i in range(len(labels)):
-        window = labels[max(0, i - half): i + half + 1]
-        out[i] = Counter(window).most_common(1)[0][0]
-    return out
-
-
-def _merge_contiguous(windows) -> list[GaitSegment]:
-    """Merge consecutive same-label windows into segments."""
-    if not windows:
-        return []
-    segments = []
-    cur = {
-        "start_ms": windows[0]["start_ms"],
-        "end_ms": windows[0]["end_ms"],
-        "label": windows[0]["label"],
-        "confidences": [windows[0]["confidence"]],
-    }
-    for w in windows[1:]:
-        if w["label"] == cur["label"]:
-            cur["end_ms"] = w["end_ms"]
-            cur["confidences"].append(w["confidence"])
-        else:
-            segments.append(GaitSegment(
-                start_ms=cur["start_ms"],
-                end_ms=cur["end_ms"],
-                label_type=cur["label"],
-                confidence=float(np.mean(cur["confidences"])),
-            ))
-            cur = {
-                "start_ms": w["start_ms"],
-                "end_ms": w["end_ms"],
-                "label": w["label"],
-                "confidences": [w["confidence"]],
-            }
-    segments.append(GaitSegment(
-        start_ms=cur["start_ms"],
-        end_ms=cur["end_ms"],
-        label_type=cur["label"],
-        confidence=float(np.mean(cur["confidences"])),
-    ))
-    return segments
-
-
-def _detect_jumps(acc_samples, config) -> list[GaitSegment]:
-    """
-    Detect jumps as g-spikes in |a|. Each jump becomes a 1-second segment
-    centered on the peak; multiple peaks within min_separation collapse into
-    a single jump_count update.
-    """
-    from scipy.signal import find_peaks
-    a_mag = np.sqrt(
-        acc_samples["ax"].values ** 2
-        + acc_samples["ay"].values ** 2
-        + acc_samples["az"].values ** 2
-    )
-    t_ms = acc_samples["t_ms"].values
-    fs = 1000.0 / np.median(np.diff(t_ms))
-    
-    peaks, _ = find_peaks(
-        a_mag,
-        height=1.0 + config.jump_peak_min_g,
-        distance=int(config.jump_min_separation_s * fs),
-    )
-    
-    return [
-        GaitSegment(
-            start_ms=int(t_ms[max(0, p - int(0.5 * fs))]),
-            end_ms=int(t_ms[min(len(t_ms) - 1, p + int(0.5 * fs))]),
-            label_type="jump",
-            confidence=float(min(1.0, (a_mag[p] - 1.0) / 5.0)),
-            jump_count=1,
-        )
-        for p in peaks
-    ]
+    ...
 ```
 
-## Tests
+## V.0 → V.1 path
 
-```python
-# tests/unit/test_gait_detection.py
+- **V.0:** RF on hand-engineered features, trained on Kamminga + transferred to H10 with rider-label fine-tuning. Lives entirely in `algo/`.
+- **V.1 hardware:** if custom band adds magnetometer, add 3 orientation features to the vector and retrain. If it adds gyroscope, expect a 5–10 pp accuracy jump and reconsider deep models. If it adds barometric pressure, add baro-impulse to the jump detector for higher precision.
+- **V.1 algorithm:** when ≥ 200 rider-corrected sessions exist, swap RF for a 1D CNN trained on the labeled accel windows. Same public signature; rule-based RF stays as fallback and validation reference.
 
-def test_synthetic_trot_detected():
-    """Sinusoidal acc at 1.5 Hz is classified as trot."""
-    fs = 52
-    duration_s = 60
-    t = np.arange(0, duration_s, 1/fs)
-    ax = 0.3 * np.sin(2 * np.pi * 1.5 * t)
-    ay = 0.3 * np.cos(2 * np.pi * 1.5 * t)
-    az = np.full_like(t, 1.0) + 0.1 * np.sin(2 * np.pi * 1.5 * t)
-    df = pd.DataFrame({"t_ms": (t * 1000).astype(int), "ax": ax, "ay": ay, "az": az})
-    
-    segments = detect_gaits(df)
-    trot_segments = [s for s in segments if s.label_type == "trot"]
-    assert len(trot_segments) > 0
-    total_trot_s = sum((s.end_ms - s.start_ms) / 1000 for s in trot_segments)
-    assert total_trot_s > 50  # majority of the 60s
+## Files this slice produces
 
-def test_jump_detected_as_spike():
-    """A 4g spike produces one jump segment."""
-    fs = 52
-    a = np.full(fs * 30, 1.0)
-    a[fs * 15] = 4.5
-    df = pd.DataFrame({
-        "t_ms": np.arange(0, 30 * 1000, 1000 / fs).astype(int),
-        "ax": a, "ay": np.zeros_like(a), "az": np.zeros_like(a),
-    })
-    segments = detect_gaits(df)
-    jumps = [s for s in segments if s.label_type == "jump"]
-    assert len(jumps) == 1
-
-def test_idle_session_yields_rest():
-    """A flat session is all rest."""
-    df = pd.DataFrame({
-        "t_ms": np.arange(0, 60_000, 1000 / 52).astype(int),
-        "ax": np.zeros(int(60 * 52)),
-        "ay": np.zeros(int(60 * 52)),
-        "az": np.full(int(60 * 52), 1.0),
-    })
-    segments = detect_gaits(df)
-    non_rest = [s for s in segments if s.label_type not in ("rest", "other")]
-    assert len(non_rest) == 0
+```
+algo/algorithms/gait.py                       — runtime classifier
+algo/algorithms/gait_features.py              — feature extraction (split for 150-line rule)
+algo/algorithms/gait_jump_detector.py         — separate impulse detector
+algo/scripts/train_gait_rf.py                 — one-shot training on Kamminga + H10 labels
+algo/scripts/fetch_kamminga.sh                — downloads the CC0 dataset locally
+algo/models/gait_rf_v0.1.joblib               — committed (~few MB) for reproducibility
+algo/tests/test_gait_synthetic.py             — sinusoidal fixtures per gait
+algo/tests/test_gait_kamminga.py              — held-out-horse validation against the public set
+algo/tests/fixtures/kamminga_eval_split.parquet  — frozen eval split (small subset of CC0 data)
 ```
 
-## Failure modes
+Eight files per the 150-line rule. The training script is one-shot; the runtime path is `algo/algorithms/gait.py` + its two helpers.
 
-| Issue | Behavior |
-|---|---|
-| Band loose / sliding | Frequency analysis still works; magnitude approach is robust |
-| Sample rate dropouts | Welch handles uneven sampling within tolerance; >10% gap flagged in quality |
-| Multiple horses' signals mixed | Not possible — one band = one horse |
-| Short session (<window_s) | Returns empty list; rider labels manually |
+## Open questions for the thesis
 
-## V.1 path
-
-Once 200+ rider-corrected sessions exist, train a 1D CNN on the labelled accelerometer windows. Swap in `gait_detection_ml.py` with the same public signature. The rule-based version stays as a fallback and validation reference.
+1. **No published validation of H10 chest-girth specifically for gait classification.** We generate novel data here. Worth documenting carefully as a methods contribution.
+2. **Girth vs withers placement gap on the same horse** — unmeasured in the literature. Optional ablation if Slice 13 ships early.
+3. **Canter vs gallop separability from chest accel alone** — unresolved; we merge them.
+4. **Minimum training data per horse** — unquantified. Plan: 1–2 labeled sessions per new horse minimum.

@@ -14,8 +14,8 @@
 | **1 — Foundation** | 1, 2, 3, 4 | Bearer round-trip + schema + magic-link auth + sessions API | ~13 | Sign-in works on phone |
 | **2 — First smoke** | 5, 6, 7 | BLE pair → ingest → record-on-self | ~16 | **Smoke test on Ferdinand's chest** |
 | **3 — Compute** | 8, 9, 10, 11, 11.5 | V.0.1 migrations + algo + cron runner + TRIMP + recovery τ | ~21 | **HRV row appears in DB** |
-| **4 — Full sensors** | 12, 13, 14 | PMD codec (ACC + ECG) + gait detection + stress test | ~14–22 | **ECG/ACC flow + stress test** |
-| **5 — Review + admin** | 15, 16, 16.5 | Label review UI + admin dashboard + anomaly-rest | ~17 | Rider reviews <60s |
+| **4 — Full sensors** | 12, 13, 14 | PMD codec (ACC + ECG) + gait detection (RF on Kamminga + H10) + stress test | ~20–28 | **ECG/ACC flow + RF classifier + stress test** |
+| **5 — Review + admin** | 15.A, 15.B, 16, 16.5 | Manual label review UI + admin dashboard + anomaly-rest | ~19 | Rider reviews <60s |
 | **6 — Production gate** | 17, 18 + first-on-horse | Multi-rider RLS + Realtime auth + iPhone + Service Worker + on-horse verification | ~11 | **Stable-trip ready** |
 
 **Critical-path chain:** 1 → 2 → 3 → 4 → 5 → 6 → 7 [SMOKE] → 8 → 9 → 10 [COMPUTE] → 12 → 13.
@@ -307,15 +307,23 @@ Expected: `session_ok=1, sample_count>=250, hr_min>=30, hr_max<=220, max_gap_ms<
 
 **Heaviest slice in the plan.** Budget a full weekend day. Reference `bleakheart` (Python) and `cjs30/FingerPulseLatency` (HTML) for sanity checks — **read only, do not copy** (GPL-3.0).
 
-### Slice 13 — Gait detection (~6 hrs)
+### Slice 13 — Gait detection (~12 hrs, was ~6)
 
-**Goal:** `algorithms/06-gait-detection.md` rule-based classifier on 52Hz triaxial ACC. Outputs `gait_segments` rows: walk / trot / canter / jump.
+**Goal:** Ship the v0 gait classifier specified in `algorithms/06-gait-detection.md` (rewritten 2026-05-12). Random-Forest classifier on hand-engineered features from 200 Hz tri-axial ACC, downsampled to 50 Hz internally, 2-second windows with 50% overlap. Outputs `gait_segments` rows: halt / walk / trot / canter / mixed plus a separate jump detector.
 
-**Done when:** Self-recorded session (you walking, jogging, sprinting in place with H10) produces correct labels in ≥75% of windows.
+**Why doubled:** Prior 6-hr estimate assumed a single-band threshold classifier on 52 Hz accel. The literature review (Sageder 2025, Kamminga 2019, Rana & Mittal 2025) showed that approach ceilings well below thesis-defensible accuracy. The honest ~12 hr scope buys an RF trained on the public Kamminga dataset, transferred to H10 chest-girth, with a documented validation plan.
 
-**Kill switch:** If the spec's 312-line file doesn't decompose cleanly, ship a v0 classifier that only distinguishes "moving / not moving" by ACC magnitude. Mark gait classification as V.0.1 work for the freelancer. Riders hand-label in the meantime.
+**Done when:**
+- `algo/algorithms/gait.py` + `gait_features.py` + `gait_jump_detector.py` implement the pipeline in the spec (anti-alias → 200→50 Hz → bandpass → magnitude → window → ~15 features → RF → majority smoothing → segments).
+- `algo/scripts/train_gait_rf.py` trains on the Kamminga "Horsing Around" CC0 dataset (`fetch_kamminga.sh` downloads it) and produces `algo/models/gait_rf_v0.1.joblib`.
+- Held-out-horse cross-validation in `test_gait_kamminga.py` hits **≥ 78% balanced accuracy** on walk / trot / canter.
+- Self-recorded H10 chest-girth session (one rider, one horse, one short ride mixing walk / trot / canter) labels ≥ 70% of windows correctly when compared against rider quick-labels from Slice 15.
 
-**Spec follow-up:** Split `06-gait-detection.md` into 3 files this slice. The doc should obey its own rule.
+**Kill switch:** If Kamminga validation falls below 70% balanced accuracy, downgrade `gait.py` to a binary "moving / not moving" classifier on accel magnitude, mark full gait classification as Luigi-track work, riders hand-label everything via Slice 15. Document the failure honestly in the thesis methods chapter.
+
+**Pre-req for freelancer (Luigi) work:** This slice ships the v0 baseline. The M1 contract gate is whether Luigi can beat v0's balanced accuracy on rider-labeled H10 data with at least the same level of interpretability.
+
+**File budget (eight files, all ≤150 lines except the joblib model + frozen eval fixture):** `gait.py`, `gait_features.py`, `gait_jump_detector.py`, `train_gait_rf.py`, `fetch_kamminga.sh`, `gait_rf_v0.1.joblib`, `test_gait_synthetic.py`, `test_gait_kamminga.py`. The spec file's own 150-line rule is satisfied by the helpers split — `06-gait-detection.md` itself documents the contract.
 
 ### Slice 14 — Stress test (~4 hrs)
 
@@ -334,13 +342,63 @@ Expected: `session_ok=1, sample_count>=250, hr_min>=30, hr_max<=220, max_gap_ms<
 
 ## Phase 5 — Review + admin (~17 hrs)
 
-### Slice 15 — Label review UI (~7 hrs)
+### Slice 15 — Manual label review UI (~9 hrs, split 15.A + 15.B)
 
-**Goal:** Post-session, rider sees timeline with auto-labels. Tap to change label, drag to resize segment, +/– jump count. "Approve" writes `label_corrections` rows + flips session to `approved`.
+**Decoupled from Slice 13.** Per the Option C labelling decision, this slice is manual-only — no auto-label dependency. Slice 15 can ship before Slice 13 and the resulting `label_corrections` rows become ground truth for both the v0 RF classifier (Slice 13) and the freelancer's follow-up model.
 
-**Done when:** Self-test on phone: review a session in <60s, change one label, hit approve, see correction recorded.
+**Interaction model (locked):** Pre-segmented time blocks, tap each with a label chip. Long-press to subdivide. Jump counts captured per-block in the same chip sheet — this gives the freelancer block-level alignment between rider ground truth and accel impulse signatures, which a session-total count would not.
 
-**Kill switch:** If `EditableTimeline` exceeds 250 lines (likely), split into `TimelineCanvas` + `LabelChips` + `JumpCounter`. Don't ship one giant component.
+**Block count:** `min(8, max(4, round(duration_min / 6)))`, equal time slices. HR-breakpoint segmentation is a 15.5 enhancement if riders report block boundaries straddling gait changes.
+
+**Re-edit window:** Rider can edit labels until 23:59:59 local time of the session date. API rejects edits after midnight. No DB column needed — derive from `session.created_at` + rider timezone. Memory-fresh labels are the point; late-evening sessions get a 15.5 push-notification nudge if it becomes a real complaint.
+
+**Entry point:** "Needs review" badge on the home page. No auto-redirect after compute completes — riders may want to glance at HR first.
+
+#### Slice 15.A — Manual block labels + approve (~6 hrs)
+
+**Goal:** Rider opens a computed session, sees 4–8 time blocks, taps each to pick a label (`halt / walk / trot / canter / jump / not sure`) and a per-block jump count, hits Approve. Writes `label_corrections` rows + flips `sessions.status='approved'`.
+
+**Done when:**
+- Migration `02X_label_corrections.sql` ships: `(id, session_id, rider_id, start_ms, end_ms, label, jump_count INT DEFAULT 0, created_at)` + RLS (rider reads/writes own, admin reads all).
+- `POST /api/sessions/[id]/labels` validates ownership, validates midnight window, writes rows + status flip in one transaction.
+- `<NeedsReviewBadge>` on `/home` links to `/sessions/[id]/review` when an unreviewed computed session exists.
+- Self-test on Ferdinand's iPhone via Bluefy: label a 42-min session in **≤60s**, hit Approve, verify rows in DB + status flip.
+- Unlabeled approve attempts are rejected with a clear "label at least one block" error.
+
+**Kill switch:** If any component breaks the 150-line rule, split as already planned (`TimelineSegments` / `LabelChipSheet` / `ReviewClient`). If gesture handling on Bluefy fights the build for >2 hrs, ship aggregate-only mode (one chip: "this session was mostly walk/trot/canter") — coarser ground truth, documented as regression, restored in 15.B.
+
+**Files (10, all ≤150 lines):**
+```
+db/migrations/02X_label_corrections.sql              — schema + RLS
+web/app/api/sessions/[id]/labels/route.ts            — POST/GET, midnight check
+web/app/sessions/[id]/review/page.tsx                — server: fetch session + HR trace
+web/app/sessions/[id]/review/ReviewClient.tsx        — top-level state machine
+web/app/sessions/[id]/review/TimelineSegments.tsx    — block grid
+web/app/sessions/[id]/review/LabelChipSheet.tsx      — bottom sheet: label + jump counter
+web/app/sessions/[id]/review/HRMiniTrace.tsx         — readonly chart context
+web/app/sessions/[id]/review/segments.ts             — block math (pure fn)
+web/app/home/NeedsReviewBadge.tsx                    — entry point
+web/tests/sessions-review.test.ts                    — segment math + API contract
+```
+
+#### Slice 15.B — Long-press split + Bluefy polish (~3 hrs)
+
+**Goal:** Power users subdivide a block via long-press (500 ms) → "split in half / split in thirds." Bluefy-specific touch-event quirks resolved (text-selection magnifier suppressed, context menu prevented).
+
+**Done when:**
+- Long-press on a block opens `<SplitBlockSheet>`; selecting an option replaces the block with 2 or 3 unlabeled children.
+- Bluefy on iPhone: long-press does NOT trigger Safari's selection magnifier.
+- Ferdinand self-tests on Bluefy + Chrome Android + desktop Safari before merge.
+
+**Kill switch:** If long-press is unreliable on Bluefy, ship a small "+" icon on each block instead — less elegant but deterministic across webviews.
+
+**Files (2):**
+```
+web/app/sessions/[id]/review/SplitBlockSheet.tsx     — split options
+web/app/sessions/[id]/review/segments.ts             — extend with split logic (still ≤150)
+```
+
+**Why the split into 15.A + 15.B:** 15.A is the minimum-viable ground-truth capture. Even if 15.B is never built, the freelancer has block-level labeled data to train against. 15.B is pure UX polish for power users.
 
 ### Slice 16 — Admin dashboard (Today + sessions list + session detail) (~7 hrs)
 
