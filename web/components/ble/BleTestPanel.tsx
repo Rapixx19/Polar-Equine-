@@ -77,7 +77,11 @@ export function BleTestPanel({ horses }: Props) {
     void ingest.stop();
   }
 
-  function onConnected(device: BluetoothDevice, unsubscribe: () => Promise<void>) {
+  function onConnected(
+    device: BluetoothDevice,
+    _server: BluetoothRemoteGATTServer,
+    unsubscribe: () => Promise<void>,
+  ) {
     setDeviceName(device.name ?? "Polar H10");
     unsubscribeRef.current = unsubscribe;
     setErrorMessage(undefined);

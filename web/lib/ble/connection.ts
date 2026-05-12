@@ -21,7 +21,9 @@ export async function pairAndConnect(): Promise<{
   }
   const device = await navigator.bluetooth.requestDevice({
     filters: [{ services: ["heart_rate"] }],
-    optionalServices: ["battery_service"],
+    // Polar PMD service is requested up-front so PMD characteristics can be
+    // discovered later by use-ingest-session without re-prompting the user.
+    optionalServices: ["battery_service", "fb005c80-02e7-f387-1cad-8acd2d8df0c8"],
   });
   if (!device.gatt) {
     throw new Error("Selected device exposes no GATT server");

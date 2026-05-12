@@ -8,7 +8,11 @@ import type { HRSample } from "@/lib/ble/hr-codec";
 type Props = {
   state: ConnectionState;
   onStateChange: (state: ConnectionState) => void;
-  onConnected: (device: BluetoothDevice, unsubscribe: () => Promise<void>) => void;
+  onConnected: (
+    device: BluetoothDevice,
+    server: BluetoothRemoteGATTServer,
+    unsubscribe: () => Promise<void>,
+  ) => void;
   onSample: (sample: HRSample) => void;
   onDisconnect: () => void;
   onError: (message: string) => void;
@@ -33,7 +37,7 @@ export function PairButton({
       onStateChange("connecting");
       const unsubscribe = await subscribeHR(device, server, onSample, onDisconnect);
       onStateChange("connected");
-      onConnected(device, unsubscribe);
+      onConnected(device, server, unsubscribe);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown BLE error";
       onError(message);

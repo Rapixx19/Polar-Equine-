@@ -536,6 +536,62 @@ export type Database = {
           },
         ]
       }
+      signal_chunks: {
+        Row: {
+          byte_count: number
+          channels: number
+          chunk_index: number
+          created_at: string | null
+          end_t_ms: number
+          id: number
+          range_g: number | null
+          resolution_bits: number
+          sample_rate_hz: number
+          session_id: string
+          start_t_ms: number
+          storage_path: string
+          stream: string
+        }
+        Insert: {
+          byte_count: number
+          channels: number
+          chunk_index: number
+          created_at?: string | null
+          end_t_ms: number
+          id?: number
+          range_g?: number | null
+          resolution_bits: number
+          sample_rate_hz: number
+          session_id: string
+          start_t_ms: number
+          storage_path: string
+          stream: string
+        }
+        Update: {
+          byte_count?: number
+          channels?: number
+          chunk_index?: number
+          created_at?: string | null
+          end_t_ms?: number
+          id?: number
+          range_g?: number | null
+          resolution_bits?: number
+          sample_rate_hz?: number
+          session_id?: string
+          start_t_ms?: number
+          storage_path?: string
+          stream?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_chunks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_metrics: {
         Row: {
           algo_version: string | null
