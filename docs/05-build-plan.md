@@ -14,7 +14,7 @@
 | **1 — Foundation** | 1, 2, 3, 4 | Bearer round-trip + schema + magic-link auth + sessions API | ~13 | Sign-in works on phone |
 | **2 — First smoke** | 5, 6, 7 | BLE pair → ingest → record-on-self | ~16 | **Smoke test on Ferdinand's chest** |
 | **3 — Compute** | 8, 9, 10, 11, 11.5 | V.0.1 migrations + algo + cron runner + TRIMP + recovery τ | ~21 | **HRV row appears in DB** |
-| **4 — Full sensors** | 12, 13, 14 | PMD codec (ACC + ECG) + gait detection + stress test | ~14–22 | **ECG/ACC flow + stress test** |
+| **4 — Full sensors** | 12, 13, 14 | PMD codec (ACC + ECG) + gait detection (RF on Kamminga + H10) + stress test | ~20–28 | **ECG/ACC flow + RF classifier + stress test** |
 | **5 — Review + admin** | 15, 16, 16.5 | Label review UI + admin dashboard + anomaly-rest | ~17 | Rider reviews <60s |
 | **6 — Production gate** | 17, 18 + first-on-horse | Multi-rider RLS + Realtime auth + iPhone + Service Worker + on-horse verification | ~11 | **Stable-trip ready** |
 
@@ -307,15 +307,23 @@ Expected: `session_ok=1, sample_count>=250, hr_min>=30, hr_max<=220, max_gap_ms<
 
 **Heaviest slice in the plan.** Budget a full weekend day. Reference `bleakheart` (Python) and `cjs30/FingerPulseLatency` (HTML) for sanity checks — **read only, do not copy** (GPL-3.0).
 
-### Slice 13 — Gait detection (~6 hrs)
+### Slice 13 — Gait detection (~12 hrs, was ~6)
 
-**Goal:** `algorithms/06-gait-detection.md` rule-based classifier on 52Hz triaxial ACC. Outputs `gait_segments` rows: walk / trot / canter / jump.
+**Goal:** Ship the v0 gait classifier specified in `algorithms/06-gait-detection.md` (rewritten 2026-05-12). Random-Forest classifier on hand-engineered features from 200 Hz tri-axial ACC, downsampled to 50 Hz internally, 2-second windows with 50% overlap. Outputs `gait_segments` rows: halt / walk / trot / canter / mixed plus a separate jump detector.
 
-**Done when:** Self-recorded session (you walking, jogging, sprinting in place with H10) produces correct labels in ≥75% of windows.
+**Why doubled:** Prior 6-hr estimate assumed a single-band threshold classifier on 52 Hz accel. The literature review (Sageder 2025, Kamminga 2019, Rana & Mittal 2025) showed that approach ceilings well below thesis-defensible accuracy. The honest ~12 hr scope buys an RF trained on the public Kamminga dataset, transferred to H10 chest-girth, with a documented validation plan.
 
-**Kill switch:** If the spec's 312-line file doesn't decompose cleanly, ship a v0 classifier that only distinguishes "moving / not moving" by ACC magnitude. Mark gait classification as V.0.1 work for the freelancer. Riders hand-label in the meantime.
+**Done when:**
+- `algo/algorithms/gait.py` + `gait_features.py` + `gait_jump_detector.py` implement the pipeline in the spec (anti-alias → 200→50 Hz → bandpass → magnitude → window → ~15 features → RF → majority smoothing → segments).
+- `algo/scripts/train_gait_rf.py` trains on the Kamminga "Horsing Around" CC0 dataset (`fetch_kamminga.sh` downloads it) and produces `algo/models/gait_rf_v0.1.joblib`.
+- Held-out-horse cross-validation in `test_gait_kamminga.py` hits **≥ 78% balanced accuracy** on walk / trot / canter.
+- Self-recorded H10 chest-girth session (one rider, one horse, one short ride mixing walk / trot / canter) labels ≥ 70% of windows correctly when compared against rider quick-labels from Slice 15.
 
-**Spec follow-up:** Split `06-gait-detection.md` into 3 files this slice. The doc should obey its own rule.
+**Kill switch:** If Kamminga validation falls below 70% balanced accuracy, downgrade `gait.py` to a binary "moving / not moving" classifier on accel magnitude, mark full gait classification as Luigi-track work, riders hand-label everything via Slice 15. Document the failure honestly in the thesis methods chapter.
+
+**Pre-req for freelancer (Luigi) work:** This slice ships the v0 baseline. The M1 contract gate is whether Luigi can beat v0's balanced accuracy on rider-labeled H10 data with at least the same level of interpretability.
+
+**File budget (eight files, all ≤150 lines except the joblib model + frozen eval fixture):** `gait.py`, `gait_features.py`, `gait_jump_detector.py`, `train_gait_rf.py`, `fetch_kamminga.sh`, `gait_rf_v0.1.joblib`, `test_gait_synthetic.py`, `test_gait_kamminga.py`. The spec file's own 150-line rule is satisfied by the helpers split — `06-gait-detection.md` itself documents the contract.
 
 ### Slice 14 — Stress test (~4 hrs)
 
