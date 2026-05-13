@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
@@ -7,7 +8,14 @@ export default async function WelcomePage() {
   const supabase = await createServerSupabaseClient();
   const user = await getUser(supabase);
   if (user) {
-    redirect("/home");
+    // is_admin auto-routes to /admin; /home handles the rider redirect to
+    // /auth/provision when no profile exists yet.
+    const { data: profile } = await supabase
+      .from("rider_profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+    redirect(profile?.is_admin ? "/admin" : "/home");
   }
 
   return (
@@ -26,6 +34,15 @@ export default async function WelcomePage() {
         </p>
 
         <EmailPasswordForm />
+
+        <p className="mt-8 text-center text-xs text-[var(--text-faint)]">
+          <Link
+            href="/admin"
+            className="underline underline-offset-2 hover:text-[var(--lime)]"
+          >
+            Admin sign-in →
+          </Link>
+        </p>
       </div>
     </main>
   );

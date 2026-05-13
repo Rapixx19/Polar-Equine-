@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Avatar } from "@/components/Avatar";
@@ -6,10 +5,14 @@ import { BrandMark } from "@/components/BrandMark";
 import { Footer } from "@/components/Footer";
 import { HomeLiveBanner } from "@/components/home/HomeLiveBanner";
 import { HomeRecapCard } from "@/components/home/HomeRecapCard";
-import { ActivityTile } from "@/components/session/ActivityTile";
-import { ACTIVITY_TYPES } from "@/lib/activities";
+import { NeedsReviewBanner } from "@/components/home/NeedsReviewBanner";
+import { StartRecordingPanel } from "@/components/home/StartRecordingPanel";
+import { HomeRings } from "@/components/home/research/HomeRings";
+import { NextNeeded } from "@/components/home/research/NextNeeded";
+import { ResearchProgress } from "@/components/home/research/ResearchProgress";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import { fetchHomeSummary } from "@/lib/home/home-summary";
+import { fetchProgressContext } from "@/lib/research/fetch-progress";
 
 export default async function HomePage() {
   const supabase = await createServerSupabaseClient();
@@ -28,10 +31,11 @@ export default async function HomePage() {
     redirect("/auth/provision");
   }
 
-  const summary = await fetchHomeSummary(supabase, user.id);
+  const [summary, progress] = await Promise.all([
+    fetchHomeSummary(supabase, user.id),
+    fetchProgressContext(supabase, user.id),
+  ]);
   const initial = (profile.display_name?.trim()?.[0] ?? "?").toUpperCase();
-  const sectionTitle = summary.state === "live" ? "Start another session" : "What is the horse doing?";
-  const gridActivities = ACTIVITY_TYPES.filter((a) => a !== "other");
 
   return (
     <main className="min-h-screen p-6">
@@ -49,6 +53,10 @@ export default async function HomePage() {
           )}
         </header>
 
+        <HomeRings ctx={progress} />
+
+        <NeedsReviewBanner supabase={supabase} userId={user.id} />
+
         {summary.state === "live" && (
           <HomeLiveBanner
             id={summary.session.id}
@@ -57,6 +65,12 @@ export default async function HomePage() {
             startedAtRelative={summary.session.startedAtRelative}
           />
         )}
+
+        <ResearchProgress ctx={progress} />
+        <NextNeeded ctx={progress} />
+
+        <StartRecordingPanel />
+
         {summary.state === "recap" && (
           <HomeRecapCard
             id={summary.session.id}
@@ -68,29 +82,6 @@ export default async function HomePage() {
             hrPeak={summary.session.hrPeak}
           />
         )}
-
-        <h2 className="mb-3 text-sm font-medium text-[var(--text-muted)]">{sectionTitle}</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {gridActivities.map((activity) => (
-            <ActivityTile
-              key={activity}
-              activity={activity}
-              variant={activity === "riding" ? "primary" : "standard"}
-            />
-          ))}
-        </div>
-
-        <div className="mt-6 text-center">
-          <Link
-            href="/session/new/custom"
-            className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] transition hover:text-[var(--lime)]"
-          >
-            <span aria-hidden className="text-base">
-              +
-            </span>
-            Something else
-          </Link>
-        </div>
 
         <Footer />
       </div>

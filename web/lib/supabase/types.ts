@@ -257,6 +257,8 @@ export type Database = {
           created_by: string | null
           date_of_birth: string | null
           id: string
+          is_guest: boolean
+          last_used_at: string | null
           name: string
           notes: string | null
           owner: string | null
@@ -270,6 +272,8 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           id?: string
+          is_guest?: boolean
+          last_used_at?: string | null
           name: string
           notes?: string | null
           owner?: string | null
@@ -283,6 +287,8 @@ export type Database = {
           created_by?: string | null
           date_of_birth?: string | null
           id?: string
+          is_guest?: boolean
+          last_used_at?: string | null
           name?: string
           notes?: string | null
           owner?: string | null
@@ -297,9 +303,11 @@ export type Database = {
           algo_version: string
           auto_confidence: number | null
           auto_end_ms: number
+          auto_jump_count: number
           auto_label_type: string
           auto_start_ms: number
           corrected_end_ms: number | null
+          corrected_jump_count: number
           corrected_label_type: string | null
           corrected_start_ms: number | null
           correction_kind: string
@@ -312,9 +320,11 @@ export type Database = {
           algo_version: string
           auto_confidence?: number | null
           auto_end_ms: number
+          auto_jump_count?: number
           auto_label_type: string
           auto_start_ms: number
           corrected_end_ms?: number | null
+          corrected_jump_count?: number
           corrected_label_type?: string | null
           corrected_start_ms?: number | null
           correction_kind: string
@@ -327,9 +337,11 @@ export type Database = {
           algo_version?: string
           auto_confidence?: number | null
           auto_end_ms?: number
+          auto_jump_count?: number
           auto_label_type?: string
           auto_start_ms?: number
           corrected_end_ms?: number | null
+          corrected_jump_count?: number
           corrected_label_type?: string | null
           corrected_start_ms?: number | null
           correction_kind?: string
@@ -407,6 +419,8 @@ export type Database = {
           id: string
           is_admin: boolean | null
           preferred_horse_id: string | null
+          program_end_date: string | null
+          session_quota_target: number
           total_sessions: number | null
         }
         Insert: {
@@ -416,6 +430,8 @@ export type Database = {
           id: string
           is_admin?: boolean | null
           preferred_horse_id?: string | null
+          program_end_date?: string | null
+          session_quota_target?: number
           total_sessions?: number | null
         }
         Update: {
@@ -425,6 +441,8 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           preferred_horse_id?: string | null
+          program_end_date?: string | null
+          session_quota_target?: number
           total_sessions?: number | null
         }
         Relationships: [
@@ -727,11 +745,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      is_admin_check: { Args: never; Returns: boolean }
+      create_guest_horse_for_self: {
+        Args: { p_name: string }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
       create_horse_for_self: {
         Args: { p_name: string }
-        Returns: { id: string; name: string }[]
+        Returns: {
+          id: string
+          name: string
+        }[]
       }
+      is_admin_check: { Args: never; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

@@ -36,19 +36,15 @@ export default async function SessionNewPage({
   const activity: ActivityType = params.activity;
   const horseId = params.horse_id;
 
-  // riding & lunging must arrive with a valid subtype (forwarded from
-  // /session/new/subtype). Bare URLs go back to the picker.
-  const ridingFamily = activity === "riding" || activity === "lunging";
+  // V0.2: subtype is optional. The legacy /session/new/subtype picker is
+  // gone; we accept a valid subtype param for back-compat but null is fine.
   const subtype: RidingSubtype | null = isRidingSubtype(params.subtype) ? params.subtype : null;
-  if (ridingFamily && !subtype) {
-    redirect(`/session/new/subtype?activity=${activity}`);
-  }
 
   // 'other' requires a 1–200 char note.
   let note: string | null = null;
   if (activity === "other") {
     const raw = typeof params.note === "string" ? params.note.trim() : "";
-    if (raw.length === 0) redirect("/session/new/custom");
+    if (raw.length === 0) redirect("/home");
     note = raw.slice(0, NOTE_MAX);
   }
 

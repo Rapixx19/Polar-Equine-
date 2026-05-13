@@ -34,7 +34,17 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error || !data) {
-    console.error("provision_rider_failed", { code: error?.code, message: error?.message });
+    console.error(
+      "provision_rider_failed " +
+        JSON.stringify({
+          err: error,
+          errKeys: error ? Object.keys(error) : null,
+          errString: error ? String(error) : null,
+          hasData: !!data,
+          userId: user.id,
+          email: user.email,
+        }),
+    );
     return NextResponse.json({ error: "provision_failed" }, { status: 500 });
   }
 
