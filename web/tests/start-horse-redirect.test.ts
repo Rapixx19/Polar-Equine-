@@ -1,9 +1,36 @@
 import { describe, expect, it } from "vitest";
 
-import { autoRouteUrl, buildSessionStartUrl, type HorseOption } from "@/lib/horses/server";
+import {
+  autoRouteUrl,
+  buildSessionStartUrl,
+  splitHorses,
+  type HorseOption,
+} from "@/lib/horses/server";
 
-const HORSE_A: HorseOption = { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Hippo" };
-const HORSE_B: HorseOption = { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", name: "Demo" };
+const HORSE_A: HorseOption = {
+  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  name: "Hippo",
+  isGuest: false,
+  lastUsedAt: null,
+};
+const HORSE_B: HorseOption = {
+  id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  name: "Demo",
+  isGuest: false,
+  lastUsedAt: null,
+};
+const GUEST_OLD: HorseOption = {
+  id: "ccccccc1-cccc-4ccc-8ccc-cccccccccccc",
+  name: "Stranger",
+  isGuest: true,
+  lastUsedAt: "2026-05-01T10:00:00Z",
+};
+const GUEST_NEW: HorseOption = {
+  id: "ccccccc2-cccc-4ccc-8ccc-cccccccccccc",
+  name: "Visitor",
+  isGuest: true,
+  lastUsedAt: "2026-05-13T10:00:00Z",
+};
 
 describe("buildSessionStartUrl", () => {
   it("encodes activity + horse_id + subtype for riding", () => {
@@ -63,5 +90,29 @@ describe("autoRouteUrl (single-horse skip on /start/horse)", () => {
     expect(
       autoRouteUrl([HORSE_A, HORSE_B], { activity: "riding", subtype: "flat_work" }),
     ).toBeNull();
+  });
+});
+
+describe("splitHorses", () => {
+  it("partitions assigned vs guest horses", () => {
+    const { assigned, recentGuests } = splitHorses([HORSE_A, GUEST_NEW, HORSE_B]);
+    expect(assigned.map((h) => h.id)).toEqual([HORSE_A.id, HORSE_B.id]);
+    expect(recentGuests.map((h) => h.id)).toEqual([GUEST_NEW.id]);
+  });
+
+  it("sorts guests by last_used_at desc, falling back to name", () => {
+    const { recentGuests } = splitHorses([GUEST_OLD, GUEST_NEW]);
+    expect(recentGuests.map((h) => h.id)).toEqual([GUEST_NEW.id, GUEST_OLD.id]);
+  });
+
+  it("caps recent guests at maxRecentGuests", () => {
+    const guests: HorseOption[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `dddddddd-dddd-4ddd-8ddd-${String(i).padStart(12, "0")}`,
+      name: `G${i}`,
+      isGuest: true,
+      lastUsedAt: `2026-05-${String(13 - i).padStart(2, "0")}T10:00:00Z`,
+    }));
+    const { recentGuests } = splitHorses(guests, { maxRecentGuests: 3 });
+    expect(recentGuests).toHaveLength(3);
   });
 });

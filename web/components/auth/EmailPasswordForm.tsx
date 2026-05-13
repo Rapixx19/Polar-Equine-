@@ -29,7 +29,8 @@ export function EmailPasswordForm() {
         setSubmitting(false);
         return;
       }
-      window.location.href = "/home";
+      const data: { redirect_to?: string } = await res.json().catch(() => ({}));
+      window.location.href = data.redirect_to ?? "/home";
     } catch {
       setError("Network error. Check your connection.");
       setSubmitting(false);
@@ -42,6 +43,7 @@ export function EmailPasswordForm() {
         <span className="sr-only">email</span>
         <input
           type="email"
+          name="email"
           inputMode="email"
           autoComplete="email"
           required
@@ -56,6 +58,7 @@ export function EmailPasswordForm() {
         <span className="sr-only">password</span>
         <input
           type="password"
+          name="password"
           autoComplete="current-password"
           required
           minLength={6}

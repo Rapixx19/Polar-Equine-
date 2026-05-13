@@ -2,9 +2,24 @@ import { describe, expect, it } from "vitest";
 
 import { sortHorsesWithPreferred, type HorseOption } from "@/lib/horses/server";
 
-const A: HorseOption = { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", name: "Andorra" };
-const B: HorseOption = { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", name: "Bertha" };
-const C: HorseOption = { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: "Caliban" };
+const A: HorseOption = {
+  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  name: "Andorra",
+  isGuest: false,
+  lastUsedAt: null,
+};
+const B: HorseOption = {
+  id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  name: "Bertha",
+  isGuest: false,
+  lastUsedAt: null,
+};
+const C: HorseOption = {
+  id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  name: "Caliban",
+  isGuest: false,
+  lastUsedAt: null,
+};
 
 describe("sortHorsesWithPreferred", () => {
   it("hoists the preferred horse to position 0 with isPreferred=true", () => {

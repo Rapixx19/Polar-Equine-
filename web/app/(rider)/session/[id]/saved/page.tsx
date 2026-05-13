@@ -7,9 +7,11 @@ import type { ActivityType } from "@/lib/activities";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import {
   formatDuration,
-  shouldRedirectFromSaved,
+  savedView,
   type SavedSession,
 } from "@/lib/sessions/saved-summary";
+
+import { AnalyzingClient } from "./AnalyzingClient";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -27,13 +29,16 @@ export default async function SessionSavedPage({
 
   const { data: sessionRow } = await supabase
     .from("sessions")
-    .select("id, activity_type, start_time, end_time, status, horse:horses(name)")
+    .select(
+      "id, activity_type, start_time, end_time, status, metrics_status, horse:horses(name)",
+    )
     .eq("id", id)
     .maybeSingle();
 
-  // Supabase's FK embed types as an array when the relationship isn't 1:1 in
-  // the type generator's view; sessions.horse_id is a single FK so we collapse.
-  const horseRel = (sessionRow?.horse ?? null) as { name: string } | { name: string }[] | null;
+  const horseRel = (sessionRow?.horse ?? null) as
+    | { name: string }
+    | { name: string }[]
+    | null;
   const horse = Array.isArray(horseRel) ? (horseRel[0] ?? null) : horseRel;
   const session: SavedSession | null = sessionRow
     ? {
@@ -42,18 +47,23 @@ export default async function SessionSavedPage({
         start_time: sessionRow.start_time,
         end_time: sessionRow.end_time,
         status: sessionRow.status as SavedSession["status"],
+        metrics_status: sessionRow.metrics_status as SavedSession["metrics_status"],
         horse,
       }
     : null;
 
-  if (shouldRedirectFromSaved(session)) redirect("/home");
-  // narrow: shouldRedirectFromSaved guarantees non-null + completed when false
-  const s = session as SavedSession;
+  const view = savedView(session);
+  if (view === "redirect" || !session) redirect("/home");
 
+  if (view === "analyzing") {
+    return <AnalyzingClient sessionId={session.id} horseName={horse?.name ?? "your horse"} />;
+  }
+
+  // summary view (status='approved' or metrics_status='complete'/'failed')
   const { count: sampleCount } = await supabase
     .from("samples_hr")
     .select("*", { count: "exact", head: true })
-    .eq("session_id", s.id);
+    .eq("session_id", session.id);
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
@@ -61,14 +71,14 @@ export default async function SessionSavedPage({
         <div className="mb-6 text-5xl text-[var(--lime)]">✓</div>
         <h1 className="mb-2 text-2xl font-light">Session saved</h1>
         <p className="mb-8 text-sm text-[var(--text-faint)]">
-          {s.horse?.name ?? "Horse"} · {activityLabel(s.activity_type)}
+          {horse?.name ?? "Horse"} · {activityLabel(session.activity_type)}
         </p>
 
         <dl className="mb-10 space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-left">
           <div className="flex justify-between">
             <dt className="text-sm text-[var(--text-faint)]">Duration</dt>
             <dd className="text-sm font-medium tabular-nums">
-              {formatDuration(s.start_time, s.end_time)}
+              {formatDuration(session.start_time, session.end_time)}
             </dd>
           </div>
           <div className="flex justify-between">
@@ -78,7 +88,7 @@ export default async function SessionSavedPage({
         </dl>
 
         <div className="mb-6">
-          <QualitySummary sessionId={s.id} />
+          <QualitySummary sessionId={session.id} />
         </div>
 
         <Link

@@ -15,10 +15,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
   }
 
-  // Migration 021: SECURITY DEFINER RPC creates horses + horse_riders rows
-  // atomically. The function validates the name server-side too — keep this
-  // route's Zod check in sync with the RPC's CHECK (length 1..80).
-  const { data, error } = await supabase.rpc("create_horse_for_self", {
+  // Migration 021/024: SECURITY DEFINER RPCs create horses + horse_riders
+  // rows atomically. Both functions validate the name server-side too —
+  // keep this route's Zod check in sync with the RPC's CHECK (length 1..80).
+  const rpc = parsed.data.is_guest
+    ? "create_guest_horse_for_self"
+    : "create_horse_for_self";
+  const { data, error } = await supabase.rpc(rpc, {
     p_name: parsed.data.name,
   });
 

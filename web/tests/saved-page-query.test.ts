@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatDuration,
-  shouldRedirectFromSaved,
+  savedView,
   type SavedSession,
 } from "@/lib/sessions/saved-summary";
 
@@ -13,30 +13,52 @@ function makeSession(overrides: Partial<SavedSession> = {}): SavedSession {
     start_time: "2026-05-03T10:00:00.000Z",
     end_time: "2026-05-03T10:05:00.000Z",
     status: "completed",
+    metrics_status: "complete",
     horse: { name: "Hippo" },
     ...overrides,
   };
 }
 
-describe("shouldRedirectFromSaved", () => {
+describe("savedView", () => {
   it("redirects when session is null (not found / RLS denied)", () => {
-    expect(shouldRedirectFromSaved(null)).toBe(true);
+    expect(savedView(null)).toBe("redirect");
   });
 
   it("redirects when status is active", () => {
-    expect(shouldRedirectFromSaved(makeSession({ status: "active" }))).toBe(true);
+    expect(savedView(makeSession({ status: "active" }))).toBe("redirect");
   });
 
-  it("redirects when status is cancelled", () => {
-    expect(shouldRedirectFromSaved(makeSession({ status: "cancelled" }))).toBe(true);
+  it("redirects when status is abandoned", () => {
+    expect(savedView(makeSession({ status: "abandoned" }))).toBe("redirect");
   });
 
   it("redirects when end_time is null even if status='completed'", () => {
-    expect(shouldRedirectFromSaved(makeSession({ end_time: null }))).toBe(true);
+    expect(savedView(makeSession({ end_time: null }))).toBe("redirect");
   });
 
-  it("does NOT redirect for a completed session with end_time", () => {
-    expect(shouldRedirectFromSaved(makeSession())).toBe(false);
+  it("shows analyzing while metrics_status='pending'", () => {
+    expect(savedView(makeSession({ metrics_status: "pending" }))).toBe("analyzing");
+  });
+
+  it("shows analyzing while metrics_status='computing'", () => {
+    expect(savedView(makeSession({ metrics_status: "computing" }))).toBe("analyzing");
+  });
+
+  it("shows summary when metrics_status='complete'", () => {
+    expect(savedView(makeSession())).toBe("summary");
+  });
+
+  it("shows summary when metrics_status='failed' (so rider can see what they have)", () => {
+    expect(savedView(makeSession({ metrics_status: "failed" }))).toBe("summary");
+  });
+
+  it("shows summary for approved sessions regardless of metrics_status", () => {
+    expect(
+      savedView(makeSession({ status: "approved", metrics_status: "pending" })),
+    ).toBe("summary");
+    expect(
+      savedView(makeSession({ status: "approved", metrics_status: "complete" })),
+    ).toBe("summary");
   });
 });
 

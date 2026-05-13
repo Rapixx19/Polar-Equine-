@@ -96,5 +96,25 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // V0.2: touch horses.last_used_at so guest horses sort recency-first in
+  // the picker. Same fire-and-forget policy as preferred_horse_id above —
+  // a stale timestamp degrades sort order, never blocks recording.
+  try {
+    const { error: touchError } = await supabase
+      .from("horses")
+      .update({ last_used_at: start_time })
+      .eq("id", body.horse_id);
+    if (touchError) {
+      console.error("touch_horse_last_used_failed", {
+        code: touchError.code,
+        message: touchError.message,
+      });
+    }
+  } catch (err) {
+    console.error("touch_horse_last_used_threw", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   return NextResponse.json({ id: insert.data.id, start_time: insert.data.start_time });
 }

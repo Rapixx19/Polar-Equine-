@@ -1,22 +1,56 @@
 import type { TypedSupabaseClient } from "@/lib/auth/server";
 import type { ActivityType, RidingSubtype } from "@/lib/activities";
 
-export type HorseOption = { id: string; name: string };
+export type HorseOption = {
+  id: string;
+  name: string;
+  isGuest: boolean;
+  lastUsedAt: string | null;
+};
 export type HorseOptionWithPreferred = HorseOption & { isPreferred: boolean };
 
 export async function getHorsesForRider(
   supabase: TypedSupabaseClient,
 ): Promise<HorseOption[]> {
   // RLS auto-filters to horses the rider has been granted via horse_riders.
+  // is_guest + last_used_at land in migration 023; if either column is
+  // missing the query fails — wrap with a fallback so the page still
+  // renders on a stale schema (typegen catches up later).
   const { data, error } = await supabase
     .from("horses")
-    .select("id, name")
+    .select("id, name, is_guest, last_used_at")
     .order("name", { ascending: true });
   if (error) {
     console.error("get_horses_failed", { code: error.code, message: error.message });
     return [];
   }
-  return data ?? [];
+  return (data ?? []).map((h) => ({
+    id: h.id,
+    name: h.name,
+    isGuest: h.is_guest ?? false,
+    lastUsedAt: h.last_used_at ?? null,
+  }));
+}
+
+// Pure split for the start-session picker: permanent horses keep alpha
+// order; guest horses are surfaced "most recently used first" so the rider
+// taps the right one without scrolling. Recent guests are capped because
+// dragging stale one-offs around forever just clutters the picker.
+export function splitHorses(
+  horses: HorseOption[],
+  opts: { maxRecentGuests?: number } = {},
+): { assigned: HorseOption[]; recentGuests: HorseOption[] } {
+  const cap = opts.maxRecentGuests ?? 5;
+  const assigned: HorseOption[] = [];
+  const guests: HorseOption[] = [];
+  for (const h of horses) (h.isGuest ? guests : assigned).push(h);
+  guests.sort((a, b) => {
+    if (!a.lastUsedAt && !b.lastUsedAt) return a.name.localeCompare(b.name);
+    if (!a.lastUsedAt) return 1;
+    if (!b.lastUsedAt) return -1;
+    return b.lastUsedAt.localeCompare(a.lastUsedAt);
+  });
+  return { assigned, recentGuests: guests.slice(0, cap) };
 }
 
 // Pure URL builder shared by HorseTile and the single-horse auto-route on
