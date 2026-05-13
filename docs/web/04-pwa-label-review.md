@@ -2,167 +2,100 @@
 
 ## Feature scope
 
-Post-session screen where the rider sees auto-detected gait labels and approves or corrects them.
+Post-session screen where the rider tags each pre-segmented time block with a gait label + per-block jump count, then hits Approve. Slice 15.A ships **manual-only** (no auto-labels) — every label captured here is rider ground truth, written to `label_corrections` with `correction_kind='manual'` and `algo_version='manual-v1'`. This data trains the Slice 13 RF gait classifier and any freelancer follow-up model.
+
+## Status
+
+**Slice 15.A — shipped.** Manual block labels + approve. Files, API, and migration are all live in `main`.
+
+**Slice 15.B — deferred.** Long-press to split blocks, Bluefy touch-event polish.
+
+**Future (V0.x / V1):** Auto-label rendering once Slice 13 lands, drag-boundary editing, HR mini-trace context, IndexedDB offline cache.
 
 ## Depends on
 
-- `algorithms/06-gait-detection.md` (produces the auto-labels)
-- `web/10-api-sessions.md` (`/sessions/[id]/review` and `/sessions/[id]/labels`)
+- `web/10-api-sessions.md` — `POST /api/sessions/[id]/labels`
+- `02-database-schema.md` — `label_corrections` table (migration 013), `correction_kind` enum + `auto_jump_count` / `corrected_jump_count` columns (migration 022)
+- `algorithms/06-gait-detection.md` — describes the auto-label pipeline these manual labels will eventually train
 
-## Public interface
+## Routes & components
 
-| Route | Component |
+| Route / file | Role |
 |---|---|
-| `/session/[id]/review` | `ReviewScreen` |
+| `/session/[id]/review` (page.tsx) | Server component. UUID-validates `id`, fetches session, redirects to `/saved` if status ≠ `completed` or edit window closed, otherwise renders `<ReviewClient>` |
+| `ReviewClient.tsx` | `'use client'`. Top-level state machine. Holds `blocks: Block[]` computed once from `duration_ms`. POSTs to `/api/sessions/[id]/labels` on Approve, navigates to `/home` on success |
+| `TimelineSegments.tsx` | Renders one pill per block. Filled blocks show the chip color + jump-count badge. Unfilled blocks show "?" + minute range. Tap → opens label sheet |
+| `LabelChipSheet.tsx` | Bottom sheet (slides up). Shows block header ("Block 3 · 12–22 min"), 6 label chips (`halt / walk / trot / canter / jump / not_sure`), and a jump counter row (`[ – ] N [ + ]`) |
+| `components/home/NeedsReviewBanner.tsx` | Server component on `/home`. Surfaces the most recent `status='completed'` session inside the 24-hour edit window |
+| `lib/session/segments.ts` | Pure utilities: `segments(durationMs)`, `formatMinuteRange()`, `allBlocksLabeled()` |
+| `app/api/sessions/[id]/labels/route.ts` | POST handler. Auth + ownership + status + edit-window checks, then bulk-inserts label rows + flips session status to `approved` in one transaction |
 
-## Files
+## Block math
 
-```
-app/(rider)/session/[id]/review/page.tsx       ← ≤ 130 lines
-components/timeline/EditableTimeline.tsx        ← ≤ 150 lines
-components/timeline/TimelineSegment.tsx         ← ≤ 100 lines
-components/timeline/LabelPicker.tsx             ← ≤ 80 lines
-components/timeline/JumpCounter.tsx             ← ≤ 80 lines
-lib/labels/timeline-ops.ts                       ← ≤ 100 lines
-tests/unit/labels/timeline-ops.test.ts
-tests/e2e/label-review.spec.ts
-```
+`min(8, max(4, round(duration_min / 6)))` equal-width blocks of shape `{ index, start_ms, end_ms, label, jump_count }`.
 
-## Screen design
+- 5-min session → 4 blocks
+- 30-min → 5 blocks
+- 60-min → 8 blocks (cap)
 
-```
-┌────────────────────────────────────────┐
-│  ← Back                                │
-├────────────────────────────────────────┤
-│                                        │
-│  Session done. 50 minutes.             │
-│  Hippo · Anna                          │
-│                                        │
-│  We detected:                          │
-│                                        │
-│  ▓▓ Walk             12 min            │
-│  ▓▓▓▓▓ Trot          28 min            │
-│  ▓▓ Canter            8 min            │
-│  ▓ Jumps              14               │
-│                                        │
-│  ───────── timeline ─────────          │
-│  [Walk][Trot........][C][J][Walk]      │
-│  ↑ tap a segment to change its label   │
-│  ↑ drag boundaries to fix timing       │
-│                                        │
-│  + Add segment   + Add jump            │
-│                                        │
-│  ┌────────────────────────────────┐    │
-│  │  Notes                          │    │
-│  │  ┌──────────────────────────┐  │    │
-│  │  │ Felt forward today       │  │    │
-│  │  └──────────────────────────┘  │    │
-│  └────────────────────────────────┘    │
-│                                        │
-│  ┌────────────────────────────────┐    │
-│  │       Looks right · Save        │    │
-│  └────────────────────────────────┘    │
-│                                        │
-└────────────────────────────────────────┘
-```
+HR-breakpoint segmentation is a future enhancement if riders report block boundaries straddling gait changes.
 
-## Editable timeline component
+## Edit window
 
-The single most complex UI piece. Spec:
+24 hours from `sessions.created_at` (UTC). After that the POST returns `410 Gone { error: 'edit_window_closed' }`. We use UTC + 24h instead of local-midnight because no `rider_profiles.timezone` column exists yet, and 24h is slightly more forgiving for late-evening sessions while keeping the same "memory-fresh labels" intent.
 
-- Horizontal strip showing segments as colored blocks
-- Tap segment → bottom sheet with label dropdown
-- Long-press boundary → drag mode → resize segment by dragging
-- "+ Add segment" → creates a new walk-default segment at the cursor position
-- "+ Add jump" → opens modal: per-jump tap counter or per-round count entry
-- Color: walk = stone-300, trot = blue-400, canter_gallop = amber-500, jump = red-500, rest = stone-200
+## Approve flow
 
-## Save flow
-
-1. Rider taps "Looks right · Save"
-2. PWA collects current label set + notes
-3. POST `/api/sessions/[id]/labels` with the corrected labels
-4. POST `/api/sessions/[id]` PATCH `{ notes, status: 'approved' }`
-5. Toast "Saved." → navigate to home
-
-## Operations on the timeline
-
-```typescript
-// lib/labels/timeline-ops.ts
-
-export type Segment = {
-  start_ms: number;
-  end_ms: number;
-  label_type: LabelType;
-  jump_count?: number;
-  source: 'auto' | 'corrected' | 'manual';
-};
-
-export function changeSegmentLabel(
-  segments: Segment[], 
-  index: number, 
-  newLabel: LabelType
-): Segment[] {
-  // Mark as 'corrected'
-}
-
-export function resizeSegmentBoundary(
-  segments: Segment[], 
-  segmentIndex: number, 
-  side: 'start' | 'end', 
-  newMs: number
-): Segment[] {
-  // Adjust boundary, push neighbors
-}
-
-export function addSegment(
-  segments: Segment[], 
-  start_ms: number, 
-  end_ms: number, 
-  label: LabelType
-): Segment[] {
-  // Insert sorted, no overlap
-}
-
-export function deleteSegment(
-  segments: Segment[], 
-  index: number
-): Segment[];
-```
+1. Rider taps each unfilled block → picks label + (if applicable) jump count → "Save block" closes the sheet.
+2. Once `allBlocksLabeled(blocks)` is true, the Approve button enables.
+3. Tap Approve → `POST /api/sessions/[id]/labels` with `{ blocks: [{ start_ms, end_ms, label, jump_count }, ...] }`.
+4. Server validates: rider owns session, `status === 'completed'`, `now() < created_at + 24h`, `blocks.length > 0`.
+5. In one Supabase RPC call (atomic): bulk insert `label_corrections` rows + update `sessions.status = 'approved'`.
+6. On 200, client navigates to `/home`. NeedsReviewBanner disappears because no session matches the "completed within 24h" filter anymore.
 
 ## Failure modes
 
-| Situation | Behavior |
+| Situation | Response |
 |---|---|
-| Algo compute hasn't finished yet | Show "Processing your session… this takes 5–15 seconds" with spinner; poll `/sessions/[id]/review` every 2s until ready |
-| Algo failed entirely | Show "We couldn't detect gaits this time. Please add them manually." → empty timeline with all controls active |
-| Network drops mid-edit | IndexedDB caches the in-progress edit; restored on reload |
-| Rider abandons the review | Session stays `completed` not `approved`; admin can review from dashboard |
+| Not signed in | 401, redirect to `/` |
+| Session not found / not owned | 404 |
+| Status already `approved` (or not yet `completed`) | 409 — second submission idempotently rejected |
+| `now() > created_at + 24h` | 410 `{ error: 'edit_window_closed' }`, client shows "Edit window expired" |
+| Empty blocks array | 400 `{ error: 'no_labels' }` |
+| RLS denial during insert | 500, logged with structured `code` / `message` / `details` / `hint` for debugging |
+| Rider abandons review | Session stays `completed`; banner persists for the 24h window |
 
-## Integration test
+## Tests
 
-```typescript
-test('rider corrects an auto-label and saves', async ({ page, mockBLE, mockAlgo }) => {
-  // Set up: session ended, algo returned auto-labels
-  const sessionId = await createTestSession({
-    autoLabels: [
-      { start_ms: 0, end_ms: 720_000, label_type: 'walk' },
-      { start_ms: 720_000, end_ms: 2_400_000, label_type: 'trot' },
-    ],
-  });
-  
-  await loginAs('test@lafattoria.dev', page);
-  await page.goto(`/session/${sessionId}/review`);
-  
-  // Tap the first segment → change to trot
-  await page.locator('.timeline-segment').first().click();
-  await page.getByRole('option', { name: 'Trot' }).click();
-  
-  await page.getByRole('button', { name: 'Looks right · Save' }).click();
-  
-  // Verify backend has corrected labels
-  const response = await api.get(`/api/sessions/${sessionId}/review`);
-  expect(response.labels[0].label_type).toBe('trot');
-  expect(response.labels[0].source).toBe('corrected');
-});
-```
+- `tests/segments.test.ts` — pure unit tests for block math: 5-min → 4 blocks, 30-min → 5, 60-min → 8 (cap), `formatMinuteRange` formatting, `allBlocksLabeled` true/false.
+- `tests/api-session-labels.test.ts` — Vitest with mocked Supabase client. Cases: 401 unauthenticated, 404 not-owned, 409 wrong status, 410 window closed, 400 empty blocks, 200 valid input, idempotency (second valid POST → 409 because status flipped to `approved`).
+
+## Verification (manual, before merging the slice)
+
+1. Record a fresh ~3-min H10 session on Ferdinand's iPhone via Bluefy.
+2. Wait for compute to land (`status='completed'`).
+3. Open `/home` → expect the NeedsReviewBanner.
+4. Tap → land on review screen, 4 blocks visible.
+5. Tap each block, pick label, set jump count if applicable, save.
+6. Approve → land back on `/home`, banner gone.
+7. Verify in Supabase Studio: 4 `label_corrections` rows with `correction_kind='manual'` and `algo_version='manual-v1'`, session `status='approved'`.
+8. Revisit `/session/[id]/review` → should redirect (status no longer `completed`).
+
+## Kill switch (used during 15.A build)
+
+If gesture handling on Bluefy fights the build for >2 hrs, ship aggregate-only mode (one chip: "this session was mostly walk/trot/canter") — coarser ground truth, restored to block grid in 15.B. Not invoked — block grid worked first try on Bluefy.
+
+## 15.B roadmap (not shipped)
+
+- Long-press (500ms) on a block → `<SplitBlockSheet>` → split in half / thirds. Replaces the block with 2 or 3 unlabeled children.
+- Bluefy text-selection magnifier suppression around blocks.
+- Touch-event quirks on iOS Safari WebKit smoothed.
+
+## V0.x / V1 roadmap (deferred until after Slice 13)
+
+- **Auto-label rendering.** Once `algorithms/06-gait-detection.md` produces RF auto-labels, the review screen pre-fills blocks. Rider corrections write `correction_kind='correction'` rows alongside the `auto_*` originals so we capture the diff.
+- **HR mini-trace** above the block grid for context (deferred from 15.A because no API or chart component existed; will land naturally in Slice 16 admin dashboard alongside Recharts).
+- **Drag-boundary resizing** for block timing (currently fixed equal-width).
+- **Add / delete blocks** beyond the auto-computed count.
+- **Notes textarea** at the bottom of the review screen — already shipped in 15.A.
+- **IndexedDB cache** for in-progress edits across network drops.

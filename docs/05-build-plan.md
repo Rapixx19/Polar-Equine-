@@ -354,9 +354,16 @@ Expected: `session_ok=1, sample_count>=250, hr_min>=30, hr_max<=220, max_gap_ms<
 
 **Entry point:** "Needs review" badge on the home page. No auto-redirect after compute completes — riders may want to glance at HR first.
 
-#### Slice 15.A — Manual block labels + approve (~6 hrs)
+#### Slice 15.A — Manual block labels + approve (~6 hrs) — ✅ **shipped 2026-05-13** (PR #29)
 
-**Goal:** Rider opens a computed session, sees 4–8 time blocks, taps each to pick a label (`halt / walk / trot / canter / jump / not sure`) and a per-block jump count, hits Approve. Writes `label_corrections` rows + flips `sessions.status='approved'`.
+**Shipped state** (any divergence from the original spec below is intentional):
+- Migration **022** (`label_corrections` jump-count columns + `manual` correction_kind) + **025** (re-grant `is_admin_check()` EXECUTE — fixes RLS regression from migration 008) + **026** (admin UPDATE policy on `rider_profiles`).
+- Edit window changed from "23:59:59 local time" → **24h from `sessions.created_at` (UTC)** because no `rider_profiles.timezone` column exists yet.
+- HR mini-trace **dropped** from 15.A; no HR-samples API or chart component existed. Will land in Slice 16 (admin dashboard, where Recharts is already planned).
+- Files actually shipped: see `web/04-pwa-label-review.md` (the doc was rewritten to match).
+- Bonus shipped in the same PR: research dashboard (Slice 14 prep), `/admin` riders page with editable quotas, theme swap to white/black palette, deletion of obsolete `/session/new/subtype` + `/custom` pages.
+
+**Original goal (verbatim, for the freelancer's context):** Rider opens a computed session, sees 4–8 time blocks, taps each to pick a label (`halt / walk / trot / canter / jump / not sure`) and a per-block jump count, hits Approve. Writes `label_corrections` rows + flips `sessions.status='approved'`.
 
 **Done when:**
 - Migration `02X_label_corrections.sql` ships: `(id, session_id, rider_id, start_ms, end_ms, label, jump_count INT DEFAULT 0, created_at)` + RLS (rider reads/writes own, admin reads all).
