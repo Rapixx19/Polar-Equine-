@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CaptureQualityBadge } from "@/components/ble/CaptureQualityBadge";
 import { ConnectionStatus } from "@/components/ble/ConnectionStatus";
@@ -27,12 +27,32 @@ type Props = {
   activityNote?: string | null;
 };
 
+// A heartbeat older than this means flow has stopped — the strap is dry,
+// loose, or off. H10 sends one HR frame per second so 5 s is comfortably
+// past any single-sample skip.
+const HR_FLOW_BUDGET_MS = 5000;
+
+function useNowTick(intervalMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
 export function SessionRecorder({ horse, activity, ridingSubtype = null, activityNote = null }: Props) {
   const router = useRouter();
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [deviceName, setDeviceName] = useState<string | undefined>();
   const [sample, setSample] = useState<HRSample | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  // Last HR frame timestamp from the strap (not the GATT link). Used to
+  // distinguish "GATT linked" from "actually receiving heartbeats" — these
+  // come apart when contact is dry or the OS reports a ghost pairing, in
+  // which case the band shows "Connected" but no frames are arriving.
+  const [hrLastAt, setHrLastAt] = useState<number | null>(null);
+  const nowTick = useNowTick(500);
   const unsubscribeRef = useRef<(() => Promise<void>) | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
   // Mirror ingest.sessionId so the post-stop redirect still has a target
@@ -59,7 +79,14 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
 
   function onSample(s: HRSample) {
     setSample(s);
+    setHrLastAt(Date.now());
     ingest.onSample(s);
+  }
+
+  function handlePairingStateChange(next: ConnectionState) {
+    setConnectionState(next);
+    // A fresh pair attempt invalidates whatever flow we'd seen before.
+    if (next === "pairing" || next === "disconnected") setHrLastAt(null);
   }
 
   function onDisconnect() {
@@ -90,10 +117,21 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
   const isRecording = ingest.state === "recording";
   const isStopping = ingest.state === "stopping";
   const showDisconnectBanner = isRecording && connectionState === "disconnected";
+  const hrFlowing = useMemo(
+    () => hrLastAt !== null && nowTick - hrLastAt < HR_FLOW_BUDGET_MS,
+    [hrLastAt, nowTick],
+  );
+  const gattLinkedButNoHr =
+    connectionState === "connected" && !hrFlowing && ingest.state === "off";
   // Allow retry from the "error" state — start() short-circuits on an active
   // batcher, so re-tapping when state==="error" cleanly re-attempts the POST.
+  // **Critical**: require an actual HR frame in addition to GATT-connected.
+  // A GATT-linked-but-not-flowing band can happen with dry contacts, the
+  // strap off, or an OS ghost pairing — the UI used to lie "Connected"
+  // and let Start fire, producing an empty session.
   const startDisabled =
     connectionState !== "connected" ||
+    !hrFlowing ||
     (ingest.state !== "off" && ingest.state !== "error");
 
   return (
@@ -120,7 +158,7 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
 
       <PairButton
         state={connectionState}
-        onStateChange={setConnectionState}
+        onStateChange={handlePairingStateChange}
         onConnected={onConnected}
         onSample={onSample}
         onDisconnect={onDisconnect}
@@ -134,6 +172,34 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
           deviceName={deviceName}
           errorMessage={errorMessage}
         />
+      )}
+
+      {gattLinkedButNoHr && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700"
+        >
+          <span aria-hidden>⏳</span>
+          <span>
+            <strong>Waiting for first heartbeat…</strong>{" "}
+            The band is paired but no HR frames are arriving. Wet the contact patches,
+            make sure the strap is snug, and that it&apos;s positioned over the heart.
+          </span>
+        </div>
+      )}
+
+      {connectionState === "connected" && hrFlowing && !isRecording && !isStopping && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 rounded-md border border-[var(--lime)]/40 bg-[var(--lime)]/10 p-3 text-sm text-[var(--lime)]"
+        >
+          <span aria-hidden>♥</span>
+          <span>
+            <strong>Receiving heartbeats</strong> — ready to record.
+          </span>
+        </div>
       )}
 
       {(isRecording || isStopping) && (
