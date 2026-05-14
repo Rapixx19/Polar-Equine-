@@ -2,7 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { HorseRosterTable } from "@/components/admin/HorseRosterTable";
 import { KpiStrip } from "@/components/admin/KpiStrip";
+import { ObjectiveKpiStrip } from "@/components/admin/ObjectiveKpiStrip";
 import { RosterTable } from "@/components/admin/RosterTable";
 import {
   buildKpis,
@@ -11,12 +13,20 @@ import {
   type DashboardRiderProfile,
   type DashboardSessionRow,
 } from "@/lib/admin/dashboard-rollup";
+import {
+  buildHorseKpis,
+  buildHorseRollups,
+  sortHorseRollupsByActivity,
+  type HorseProfile,
+  type HorseSessionRow,
+} from "@/lib/admin/horse-rollup";
 import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
 type SessionWithMetricsRow = {
   rider_id: string;
+  horse_id: string | null;
   start_time: string;
   end_time: string | null;
   has_prototype_mount: boolean;
@@ -39,7 +49,7 @@ export default async function AdminPage() {
     .maybeSingle();
   if (!me?.is_admin) redirect("/home");
 
-  const [profilesRes, sessionsRes] = await Promise.all([
+  const [profilesRes, sessionsRes, horsesRes] = await Promise.all([
     supabase
       .from("rider_profiles")
       .select(
@@ -49,12 +59,17 @@ export default async function AdminPage() {
     supabase
       .from("sessions")
       .select(
-        "rider_id, start_time, end_time, has_prototype_mount, session_metrics(rr_cleaning_quality, hrv_completeness_quality, workload_quality)",
+        "rider_id, horse_id, start_time, end_time, has_prototype_mount, session_metrics(rr_cleaning_quality, hrv_completeness_quality, workload_quality)",
       ),
+    supabase
+      .from("horses")
+      .select("id, name, target_session_count, target_ride_minutes, admin_notes")
+      .order("name", { ascending: true }),
   ]);
 
   const profiles = (profilesRes.data ?? []) as DashboardRiderProfile[];
-  const sessions = ((sessionsRes.data ?? []) as unknown as SessionWithMetricsRow[]).map(
+  const rawSessions = (sessionsRes.data ?? []) as unknown as SessionWithMetricsRow[];
+  const sessions = rawSessions.map(
     (s): DashboardSessionRow => ({
       rider_id: s.rider_id,
       start_time: s.start_time,
@@ -65,9 +80,17 @@ export default async function AdminPage() {
       workload_quality: s.session_metrics?.workload_quality ?? null,
     }),
   );
+  const horseSessions: HorseSessionRow[] = rawSessions.map((s) => ({
+    horse_id: s.horse_id,
+    start_time: s.start_time,
+    end_time: s.end_time,
+  }));
+  const horses = (horsesRes.data ?? []) as HorseProfile[];
 
   const rollups = sortRollupsByActivity(buildRiderRollups(profiles, sessions));
   const kpis = buildKpis(rollups, sessions);
+  const horseRollups = sortHorseRollupsByActivity(buildHorseRollups(horses, horseSessions));
+  const horseKpis = buildHorseKpis(horseRollups);
 
   return (
     <main className="min-h-screen p-6">
@@ -99,7 +122,11 @@ export default async function AdminPage() {
 
         <KpiStrip kpis={kpis} />
 
+        <ObjectiveKpiStrip kpis={horseKpis} />
+
         <RosterTable rollups={rollups} />
+
+        <HorseRosterTable rollups={horseRollups} />
       </div>
     </main>
   );
