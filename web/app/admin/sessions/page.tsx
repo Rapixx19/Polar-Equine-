@@ -16,6 +16,7 @@ type SessionRow = {
   start_time: string;
   end_time: string | null;
   status: string;
+  has_prototype_mount: boolean;
   horses: { name: string | null } | null;
   rider_profiles: { display_name: string | null } | null;
 };
@@ -42,7 +43,7 @@ export default async function AdminSessionsPage() {
   const { data: rows } = await supabase
     .from("sessions")
     .select(
-      "id, rider_id, horse_id, activity_type, start_time, end_time, status, horses(name), rider_profiles(display_name)",
+      "id, rider_id, horse_id, activity_type, start_time, end_time, status, has_prototype_mount, horses(name), rider_profiles(display_name)",
     )
     .order("start_time", { ascending: false })
     .limit(50);
@@ -60,6 +61,9 @@ export default async function AdminSessionsPage() {
           <div className="flex items-center gap-3 text-sm">
             <Link href="/admin" className="text-[var(--text-muted)] hover:text-[var(--lime)]">
               Riders
+            </Link>
+            <Link href="/admin/prototype" className="text-[var(--text-muted)] hover:text-[var(--lime)]">
+              Prototype
             </Link>
             <Link href="/home" className="text-[var(--text-muted)] hover:text-[var(--lime)]">
               Rider view
@@ -85,7 +89,17 @@ export default async function AdminSessionsPage() {
                   </span>
                   <span className="col-span-3 truncate">{s.rider_profiles?.display_name ?? "—"}</span>
                   <span className="col-span-2 truncate">{s.horses?.name ?? "—"}</span>
-                  <span className="col-span-2">{activityLabel(s.activity_type)}</span>
+                  <span className="col-span-2 flex items-center gap-2">
+                    <span>{activityLabel(s.activity_type)}</span>
+                    {s.has_prototype_mount && (
+                      <span
+                        title="Recorded with prototype girth mount"
+                        className="inline-flex items-center rounded-full border border-[var(--lime)]/60 bg-[var(--lime)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--lime)]"
+                      >
+                        Prototype
+                      </span>
+                    )}
+                  </span>
                   <span className="col-span-1 text-[var(--text-muted)]">
                     {durationMinutes(s.start_time, s.end_time)}
                   </span>

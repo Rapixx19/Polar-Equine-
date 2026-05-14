@@ -15,6 +15,7 @@ export type IngestState = "off" | "starting" | "recording" | "stopping" | "error
 export type StartOptions = {
   ridingSubtype?: RidingSubtype | null;
   activityNote?: string | null;
+  hasPrototypeMount?: boolean;
   // When provided, Slice 12 streams ACC + ECG via PMD alongside HR. When null,
   // HR-only fallback (e.g. devices that don't expose PMD, or before Slice 12
   // shipped). Kill-switch: pass null to disable PMD without code revert.
@@ -71,6 +72,7 @@ export function useIngestSession() {
     };
     if (ridingFamily && options.ridingSubtype) body.riding_subtype = options.ridingSubtype;
     if (activityType === "other" && options.activityNote) body.activity_note = options.activityNote;
+    if (options.hasPrototypeMount) body.has_prototype_mount = true;
     let res: Response;
     try {
       res = await fetch("/api/sessions", {

@@ -411,6 +411,42 @@ export type Database = {
           },
         ]
       }
+      prototype_comparison_insights: {
+        Row: {
+          baseline_session_count: number
+          generated_at: string
+          id: string
+          input_token_count: number
+          insight_markdown: string
+          model: string
+          output_token_count: number
+          prompt_version: string
+          prototype_session_count: number
+        }
+        Insert: {
+          baseline_session_count: number
+          generated_at?: string
+          id?: string
+          input_token_count: number
+          insight_markdown: string
+          model: string
+          output_token_count: number
+          prompt_version: string
+          prototype_session_count: number
+        }
+        Update: {
+          baseline_session_count?: number
+          generated_at?: string
+          id?: string
+          input_token_count?: number
+          insight_markdown?: string
+          model?: string
+          output_token_count?: number
+          prompt_version?: string
+          prototype_session_count?: number
+        }
+        Relationships: []
+      }
       rider_profiles: {
         Row: {
           consented_at: string | null
@@ -595,41 +631,6 @@ export type Database = {
           },
         ]
       }
-      session_signal_events: {
-        Row: {
-          created_at: string
-          id: string
-          kind: string
-          session_id: string
-          t_end_ms: number
-          t_start_ms: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          kind: string
-          session_id: string
-          t_end_ms: number
-          t_start_ms: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          kind?: string
-          session_id?: string
-          t_end_ms?: number
-          t_start_ms?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "session_signal_events_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       session_metrics: {
         Row: {
           algo_version: string | null
@@ -737,6 +738,41 @@ export type Database = {
           },
         ]
       }
+      session_signal_events: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          session_id: string
+          t_end_ms: number
+          t_start_ms: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          session_id: string
+          t_end_ms: number
+          t_start_ms: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          session_id?: string
+          t_end_ms?: number
+          t_start_ms?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_signal_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           activity_note: string | null
@@ -745,6 +781,7 @@ export type Database = {
           client_session_id: string | null
           created_at: string | null
           end_time: string | null
+          has_prototype_mount: boolean
           horse_id: string
           id: string
           last_ingest_at: string | null
@@ -763,6 +800,7 @@ export type Database = {
           client_session_id?: string | null
           created_at?: string | null
           end_time?: string | null
+          has_prototype_mount?: boolean
           horse_id: string
           id?: string
           last_ingest_at?: string | null
@@ -781,6 +819,7 @@ export type Database = {
           client_session_id?: string | null
           created_at?: string | null
           end_time?: string | null
+          has_prototype_mount?: boolean
           horse_id?: string
           id?: string
           last_ingest_at?: string | null

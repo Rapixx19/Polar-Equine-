@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       client_session_id: body.client_session_id,
       start_time,
       status: "active",
+      has_prototype_mount: body.has_prototype_mount ?? false,
     })
     .select("id, start_time")
     .single();
