@@ -15,6 +15,15 @@ import {
   PMD_START_ECG,
 } from "./pmd-types";
 
+// Lifecycle events surfaced to the UI so the rider can see exactly what
+// failed without opening DevTools. Anything that today goes only to
+// console.error gets a parallel event here.
+export type PmdLifecycleEvent =
+  | { kind: "service_blocked"; message: string }
+  | { kind: "acc_start_failed"; message: string }
+  | { kind: "ecg_start_failed"; message: string }
+  | { kind: "ack"; stream: number; err_code: number };
+
 export type PmdHandlers = {
   onAccBatch: (samples: AccSample[]) => void;
   onEcgBatch: (samples: EcgSample[]) => void;
@@ -24,6 +33,9 @@ export type PmdHandlers = {
   // bytes so the operator can sanity-check the wire format before trusting
   // the decoder. Production callers omit this; cost is zero when undefined.
   onRawFrame?: (info: { byteLength: number; hexPreview: string }) => void;
+  // Lifecycle hook so the recording UI can render PMD start/refusal state
+  // without the operator having to open DevTools. Always invoked sync.
+  onPmdEvent?: (event: PmdLifecycleEvent) => void;
 };
 
 function hexPreview(view: DataView, max = 16): string {
@@ -42,7 +54,14 @@ export async function startPmdStreams(
   server: BluetoothRemoteGATTServer,
   handlers: PmdHandlers,
 ): Promise<() => Promise<void>> {
-  const service = await server.getPrimaryService(PMD_SERVICE_UUID);
+  let service: BluetoothRemoteGATTService;
+  try {
+    service = await server.getPrimaryService(PMD_SERVICE_UUID);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    handlers.onPmdEvent?.({ kind: "service_blocked", message });
+    throw err;
+  }
   const control = await service.getCharacteristic(PMD_CONTROL_POINT_UUID);
   const data = await service.getCharacteristic(PMD_DATA_UUID);
 
@@ -62,6 +81,7 @@ export async function startPmdStreams(
     if (v.getUint8(0) !== 0xf0 || v.getUint8(1) !== 0x02) return;
     const stream = v.getUint8(2);
     const err = v.getUint8(3);
+    handlers.onPmdEvent?.({ kind: "ack", stream, err_code: err });
     if (err !== 0) {
       console.error("[pmd] start_rejected", { stream, err_code: err });
     }
@@ -78,12 +98,16 @@ export async function startPmdStreams(
     await control.writeValue(PMD_START_ACC.buffer as ArrayBuffer);
     accStarted = true;
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    handlers.onPmdEvent?.({ kind: "acc_start_failed", message });
     console.error("[pmd] acc_start_failed", err);
   }
   try {
     await control.writeValue(PMD_START_ECG.buffer as ArrayBuffer);
     ecgStarted = true;
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    handlers.onPmdEvent?.({ kind: "ecg_start_failed", message });
     console.error("[pmd] ecg_start_failed", err);
   }
   if (!accStarted && !ecgStarted) {

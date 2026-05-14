@@ -209,6 +209,7 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
             streams={ingest.streams}
             startedAt={ingest.startedAt}
             pmdEnabled={ingest.pmdEnabled}
+            pmdEvents={ingest.pmdEvents}
           />
           <CaptureQualityBadge
             state={captureQuality.state}
