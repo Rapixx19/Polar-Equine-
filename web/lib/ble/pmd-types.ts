@@ -26,16 +26,19 @@ export type DecodedFrame =
   | { type: "acc"; pmd_ns: bigint; samples: Array<{ ax_mg: number; ay_mg: number; az_mg: number }> }
   | { type: "ecg"; pmd_ns: bigint; samples: Array<{ uv: number }> };
 
-// Control-point start sequences, verbatim from the official Polar PMD
-// spec PDF. Do NOT modify these bytes; they are negotiated with the H10
-// firmware. Per memory `reference_polar_pmd.md` (Slice 0 spike, 2026-05-02),
-// no permissively-licensed JS port exists — we maintain the codec ourselves.
+// Control-point start sequences. Setting-type opcodes per Polar PMD spec:
+// 0x00=measurement-type/op, 0x04=sample_rate, 0x05=resolution, 0x06=range.
+// (Earlier versions of this file used 0x00/0x01/0x02 for sample_rate/
+// resolution/range — those opcodes don't exist in the spec, and the H10
+// silently rejects the start command, which is why both ACC and ECG were
+// returning 0 rows for every recorded session through 2026-05-14. Cross-
+// checked against the bleakheart reference implementation.)
 export const PMD_START_ECG = new Uint8Array([
-  0x02, 0x00, 0x00, 0x01, 0x82, 0x00, 0x01, 0x01, 0x0e, 0x00,
+  0x02, 0x00, 0x04, 0x01, 0x82, 0x00, 0x05, 0x01, 0x0e, 0x00,
 ]);
 
 export const PMD_START_ACC = new Uint8Array([
-  0x02, 0x02, 0x00, 0x01, 0x34, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x08, 0x00,
+  0x02, 0x02, 0x04, 0x01, 0x34, 0x00, 0x05, 0x01, 0x10, 0x00, 0x06, 0x01, 0x08, 0x00,
 ]);
 
 export const PMD_SERVICE_UUID = "fb005c80-02e7-f387-1cad-8acd2d8df0c8";
