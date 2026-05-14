@@ -15,6 +15,17 @@ import type { GaitLabel } from "@/lib/session/segments";
 
 type Segment = { start_ms: number; end_ms: number; label: GaitLabel };
 type Sample = { ts_ms: number; bpm: number };
+type SignalEvent = { kind: "weak" | "lost"; t_start_ms: number; t_end_ms: number };
+
+// Quality-event bands sit on top of the gait fill so a span flagged as
+// "lost" reads visually as a no-go zone for downstream analysis. Stripes
+// would be more correct semantically but Recharts ReferenceArea doesn't
+// support pattern fills out of the box; a saturated translucent block is
+// the next best signal.
+const SIGNAL_FILL: Record<SignalEvent["kind"], string> = {
+  weak: "rgba(245,158,11,0.28)",
+  lost: "rgba(239,68,68,0.32)",
+};
 
 // Per-gait shading. Bumped up from v0.1 (≈0.18) so segment boundaries are
 // visually unambiguous on the spike — the rider needs to see *which*
@@ -47,11 +58,13 @@ function tickFmt(ms: number): string {
 export function HRChart({
   samples,
   segments,
+  signalEvents = [],
   durationMs,
   height = 200,
 }: {
   samples: Sample[];
   segments: Segment[];
+  signalEvents?: SignalEvent[];
   durationMs?: number;
   height?: number;
 }) {
@@ -112,6 +125,23 @@ export function HRChart({
               stroke="var(--border)"
               strokeDasharray="2 3"
               strokeOpacity={0.7}
+            />
+          ))}
+          {signalEvents.map((e) => (
+            <ReferenceArea
+              key={`sig-${e.kind}-${e.t_start_ms}-${e.t_end_ms}`}
+              x1={e.t_start_ms}
+              x2={e.t_end_ms}
+              fill={SIGNAL_FILL[e.kind]}
+              strokeOpacity={0}
+              ifOverflow="extendDomain"
+              label={{
+                value: e.kind === "lost" ? "lost" : "noisy",
+                position: "insideBottom",
+                fill: e.kind === "lost" ? "var(--red)" : "rgb(180,83,9)",
+                fontSize: 9,
+                offset: 4,
+              }}
             />
           ))}
           <XAxis

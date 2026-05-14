@@ -17,10 +17,18 @@ type Db = {
   samples: Array<Record<string, unknown>>;
   metrics: Record<string, unknown> | null;
   labels: Array<Record<string, unknown>>;
+  signalEvents: Array<Record<string, unknown>>;
 };
 
 const getUserMock = vi.fn();
-const db: Db = { isAdmin: true, sessionRow: null, samples: [], metrics: null, labels: [] };
+const db: Db = {
+  isAdmin: true,
+  sessionRow: null,
+  samples: [],
+  metrics: null,
+  labels: [],
+  signalEvents: [],
+};
 
 function buildClient() {
   return {
@@ -63,6 +71,13 @@ function buildClient() {
           }),
         };
       }
+      if (table === "session_signal_events") {
+        return {
+          select: () => ({
+            eq: () => ({ order: async () => ({ data: db.signalEvents, error: null }) }),
+          }),
+        };
+      }
       throw new Error(`unexpected table ${table}`);
     },
   };
@@ -81,6 +96,7 @@ afterEach(() => {
   db.samples = [];
   db.metrics = null;
   db.labels = [];
+  db.signalEvents = [];
 });
 
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });

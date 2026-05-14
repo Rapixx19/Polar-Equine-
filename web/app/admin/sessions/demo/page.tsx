@@ -75,6 +75,7 @@ export default async function AdminSessionDemoPage() {
           durationMs={demo.durationMs}
           initialInsight={demo.initialInsight}
           sourceCounts={demo.sourceCounts}
+          signalEvents={[]}
         />
       </div>
     </main>

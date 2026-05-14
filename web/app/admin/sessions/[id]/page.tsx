@@ -63,32 +63,46 @@ export default async function AdminSessionDetailPage({
   if (!sessionRow) notFound();
   const session = sessionRow as unknown as SessionRow;
 
-  const [samplesRes, metricsRes, labelsRes, insightRes, hrCount, accCount, ecgCount, autoLabelCount] =
-    await Promise.all([
-      supabase
-        .from("samples_hr")
-        .select("timestamp_ms, hr_bpm")
-        .eq("session_id", id)
-        .order("timestamp_ms", { ascending: true }),
-      supabase.from("session_metrics").select("*").eq("session_id", id).maybeSingle(),
-      supabase
-        .from("label_corrections")
-        .select(
-          "auto_start_ms, auto_end_ms, auto_label_type, corrected_start_ms, corrected_end_ms, corrected_label_type, corrected_jump_count, correction_kind",
-        )
-        .eq("session_id", id)
-        .order("auto_start_ms", { ascending: true }),
-      sessionInsightsTable(supabase)
-        .select(
-          "insight_markdown, model, prompt_version, input_token_count, output_token_count, generated_at",
-        )
-        .eq("session_id", id)
-        .maybeSingle(),
-      supabase.from("samples_hr").select("*", { count: "exact", head: true }).eq("session_id", id),
-      supabase.from("samples_acc").select("*", { count: "exact", head: true }).eq("session_id", id),
-      supabase.from("samples_ecg").select("*", { count: "exact", head: true }).eq("session_id", id),
-      supabase.from("labels").select("*", { count: "exact", head: true }).eq("session_id", id),
-    ]);
+  const [
+    samplesRes,
+    metricsRes,
+    labelsRes,
+    insightRes,
+    signalEventsRes,
+    hrCount,
+    accCount,
+    ecgCount,
+    autoLabelCount,
+  ] = await Promise.all([
+    supabase
+      .from("samples_hr")
+      .select("timestamp_ms, hr_bpm")
+      .eq("session_id", id)
+      .order("timestamp_ms", { ascending: true }),
+    supabase.from("session_metrics").select("*").eq("session_id", id).maybeSingle(),
+    supabase
+      .from("label_corrections")
+      .select(
+        "auto_start_ms, auto_end_ms, auto_label_type, corrected_start_ms, corrected_end_ms, corrected_label_type, corrected_jump_count, correction_kind",
+      )
+      .eq("session_id", id)
+      .order("auto_start_ms", { ascending: true }),
+    sessionInsightsTable(supabase)
+      .select(
+        "insight_markdown, model, prompt_version, input_token_count, output_token_count, generated_at",
+      )
+      .eq("session_id", id)
+      .maybeSingle(),
+    supabase
+      .from("session_signal_events")
+      .select("kind, t_start_ms, t_end_ms")
+      .eq("session_id", id)
+      .order("t_start_ms", { ascending: true }),
+    supabase.from("samples_hr").select("*", { count: "exact", head: true }).eq("session_id", id),
+    supabase.from("samples_acc").select("*", { count: "exact", head: true }).eq("session_id", id),
+    supabase.from("samples_ecg").select("*", { count: "exact", head: true }).eq("session_id", id),
+    supabase.from("labels").select("*", { count: "exact", head: true }).eq("session_id", id),
+  ]);
 
   const sourceCounts = {
     samples_hr: hrCount.count ?? 0,
@@ -127,6 +141,11 @@ export default async function AdminSessionDetailPage({
     correction_kind: String(l.correction_kind ?? ""),
   }));
   const metrics = (metricsRes.data ?? null) as Record<string, unknown> | null;
+  const signalEvents = (signalEventsRes.data ?? []).map((e) => ({
+    kind: e.kind as "weak" | "lost",
+    t_start_ms: Number(e.t_start_ms),
+    t_end_ms: Number(e.t_end_ms),
+  }));
 
   const durationMs = session.end_time
     ? new Date(session.end_time).getTime() - new Date(session.start_time).getTime()
@@ -178,6 +197,7 @@ export default async function AdminSessionDetailPage({
           durationMs={durationMs}
           initialInsight={initialInsight}
           sourceCounts={sourceCounts}
+          signalEvents={signalEvents}
         />
       </div>
     </main>

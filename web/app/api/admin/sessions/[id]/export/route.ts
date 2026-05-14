@@ -6,6 +6,7 @@ import {
   type RawLabelCorrection,
   type RawSampleHr,
   type RawSession,
+  type RawSignalEvent,
 } from "@/lib/admin/anonymise";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const [samplesRes, metricsRes, labelsRes] = await Promise.all([
+  const [samplesRes, metricsRes, labelsRes, signalEventsRes] = await Promise.all([
     supabase
       .from("samples_hr")
       .select("timestamp_ms, hr_bpm, rr_ms, contact")
@@ -58,15 +59,21 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       )
       .eq("session_id", id)
       .order("auto_start_ms", { ascending: true }),
+    supabase
+      .from("session_signal_events")
+      .select("kind, t_start_ms, t_end_ms")
+      .eq("session_id", id)
+      .order("t_start_ms", { ascending: true }),
   ]);
 
-  if (samplesRes.error || metricsRes.error || labelsRes.error) {
+  if (samplesRes.error || metricsRes.error || labelsRes.error || signalEventsRes.error) {
     console.error(
       "admin_export_related_fetch_failed " +
         JSON.stringify({
           samplesErr: samplesRes.error,
           metricsErr: metricsRes.error,
           labelsErr: labelsRes.error,
+          signalEventsErr: signalEventsRes.error,
           id,
         }),
     );
@@ -78,6 +85,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     session_metrics: (metricsRes.data ?? null) as Record<string, unknown> | null,
     samples_hr: (samplesRes.data ?? []) as RawSampleHr[],
     label_corrections: (labelsRes.data ?? []) as RawLabelCorrection[],
+    signal_events: ((signalEventsRes.data ?? []) as Array<{
+      kind: string;
+      t_start_ms: number;
+      t_end_ms: number;
+    }>).map((e) => ({
+      kind: (e.kind === "lost" ? "lost" : "weak") as "weak" | "lost",
+      t_start_ms: Number(e.t_start_ms),
+      t_end_ms: Number(e.t_end_ms),
+    })) as RawSignalEvent[],
     export_id: crypto.randomUUID(),
     exported_at: new Date().toISOString(),
   });
