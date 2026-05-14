@@ -8,6 +8,7 @@ import { ConnectionStatus } from "@/components/ble/ConnectionStatus";
 import { PairButton } from "@/components/ble/PairButton";
 import { UnsupportedBanner } from "@/components/ble/UnsupportedBanner";
 import { PreSessionGuard } from "@/components/recording/PreSessionGuard";
+import { LiveVitals } from "@/components/session/LiveVitals";
 import { RecorderButtons } from "@/components/session/RecorderButtons";
 import { SessionContextChip } from "@/components/session/SessionContextChip";
 import {
@@ -126,18 +127,28 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
         onError={setErrorMessage}
       />
 
-      <ConnectionStatus
-        state={connectionState}
-        sample={sample}
-        deviceName={deviceName}
-        errorMessage={errorMessage}
-      />
+      {!isRecording && !isStopping && (
+        <ConnectionStatus
+          state={connectionState}
+          sample={sample}
+          deviceName={deviceName}
+          errorMessage={errorMessage}
+        />
+      )}
 
       {(isRecording || isStopping) && (
-        <CaptureQualityBadge
-          state={captureQuality.state}
-          goodPct={captureQuality.summary.goodPct}
-        />
+        <>
+          <LiveVitals
+            sample={sample}
+            streams={ingest.streams}
+            startedAt={ingest.startedAt}
+            pmdEnabled={ingest.pmdEnabled}
+          />
+          <CaptureQualityBadge
+            state={captureQuality.state}
+            goodPct={captureQuality.summary.goodPct}
+          />
+        </>
       )}
 
       {showDisconnectBanner && (
