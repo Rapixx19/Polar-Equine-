@@ -21,12 +21,24 @@ export type StartOptions = {
   bleServer?: BluetoothRemoteGATTServer | null;
 };
 
+export type StreamStat = { count: number; lastAt: number | null };
+export type StreamStats = { hr: StreamStat; acc: StreamStat; ecg: StreamStat };
+
+const EMPTY_STREAM_STATS: StreamStats = {
+  hr: { count: 0, lastAt: null },
+  acc: { count: 0, lastAt: null },
+  ecg: { count: 0, lastAt: null },
+};
+
 export function useIngestSession() {
   const [state, setState] = useState<IngestState>("off");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [flushedCount, setFlushedCount] = useState(0);
   const [droppedCount, setDroppedCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [streams, setStreams] = useState<StreamStats>(EMPTY_STREAM_STATS);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [pmdEnabled, setPmdEnabled] = useState(false);
   const hrBatcherRef = useRef<HRBatcher | null>(null);
   const accBatcherRef = useRef<ACCBatcher | null>(null);
   const ecgBatcherRef = useRef<ECGBatcher | null>(null);
@@ -40,6 +52,9 @@ export function useIngestSession() {
     setError(null);
     setFlushedCount(0);
     setDroppedCount(0);
+    setStreams(EMPTY_STREAM_STATS);
+    setStartedAt(null);
+    setPmdEnabled(Boolean(options.bleServer));
     const clientSessionId = crypto.randomUUID();
     const ridingFamily = activityType === "riding" || activityType === "lunging";
     const body: Record<string, unknown> = {
@@ -94,8 +109,20 @@ export function useIngestSession() {
       ecgBatcherRef.current = ecg;
       try {
         pmdUnsubRef.current = await startPmdStreams(options.bleServer, {
-          onAccBatch: (b) => acc.add(b),
-          onEcgBatch: (b) => ecg.add(b),
+          onAccBatch: (b) => {
+            acc.add(b);
+            if (b.length > 0) {
+              const lastAt = Date.now();
+              setStreams((s) => ({ ...s, acc: { count: s.acc.count + b.length, lastAt } }));
+            }
+          },
+          onEcgBatch: (b) => {
+            ecg.add(b);
+            if (b.length > 0) {
+              const lastAt = Date.now();
+              setStreams((s) => ({ ...s, ecg: { count: s.ecg.count + b.length, lastAt } }));
+            }
+          },
           onDecodeError: (info) => console.warn("[pmd] decode_error", info),
         });
       } catch (err) {
@@ -105,6 +132,7 @@ export function useIngestSession() {
         setError("ACC/ECG stream failed to start; HR is still recording.");
       }
     }
+    setStartedAt(Date.now());
     setState("recording");
     },
     [],
@@ -138,7 +166,23 @@ export function useIngestSession() {
 
   const onSample = useCallback((s: HRSample) => {
     hrBatcherRef.current?.add(s);
+    if (hrBatcherRef.current) {
+      const lastAt = Date.now();
+      setStreams((prev) => ({ ...prev, hr: { count: prev.hr.count + 1, lastAt } }));
+    }
   }, []);
 
-  return { state, sessionId, flushedCount, droppedCount, error, start, stop, onSample };
+  return {
+    state,
+    sessionId,
+    flushedCount,
+    droppedCount,
+    error,
+    streams,
+    startedAt,
+    pmdEnabled,
+    start,
+    stop,
+    onSample,
+  };
 }
