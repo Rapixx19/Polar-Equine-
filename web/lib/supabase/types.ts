@@ -449,33 +449,39 @@ export type Database = {
       }
       rider_profiles: {
         Row: {
+          admin_notes: string | null
           consented_at: string | null
           created_at: string | null
           display_name: string
           id: string
           is_admin: boolean | null
+          next_focus: string | null
           preferred_horse_id: string | null
           program_end_date: string | null
           session_quota_target: number
           total_sessions: number | null
         }
         Insert: {
+          admin_notes?: string | null
           consented_at?: string | null
           created_at?: string | null
           display_name: string
           id: string
           is_admin?: boolean | null
+          next_focus?: string | null
           preferred_horse_id?: string | null
           program_end_date?: string | null
           session_quota_target?: number
           total_sessions?: number | null
         }
         Update: {
+          admin_notes?: string | null
           consented_at?: string | null
           created_at?: string | null
           display_name?: string
           id?: string
           is_admin?: boolean | null
+          next_focus?: string | null
           preferred_horse_id?: string | null
           program_end_date?: string | null
           session_quota_target?: number

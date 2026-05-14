@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { HomeLiveBanner } from "@/components/home/HomeLiveBanner";
 import { HomeRecapCard } from "@/components/home/HomeRecapCard";
 import { NeedsReviewBanner } from "@/components/home/NeedsReviewBanner";
+import { NextFocusBanner } from "@/components/home/NextFocusBanner";
 import { StartRecordingPanel } from "@/components/home/StartRecordingPanel";
 import { HomeRings } from "@/components/home/research/HomeRings";
 import { NextNeeded } from "@/components/home/research/NextNeeded";
@@ -23,7 +24,7 @@ export default async function HomePage() {
 
   const { data: profile } = await supabase
     .from("rider_profiles")
-    .select("display_name, is_admin")
+    .select("display_name, is_admin, next_focus")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -52,6 +53,8 @@ export default async function HomePage() {
             <p className="mt-1 text-xs uppercase tracking-wide text-[var(--lime)]">Admin</p>
           )}
         </header>
+
+        <NextFocusBanner message={profile.next_focus ?? null} />
 
         <HomeRings ctx={progress} />
 
