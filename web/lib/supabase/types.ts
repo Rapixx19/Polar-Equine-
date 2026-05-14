@@ -554,6 +554,47 @@ export type Database = {
           },
         ]
       }
+      session_insights: {
+        Row: {
+          generated_at: string
+          id: string
+          input_token_count: number
+          insight_markdown: string
+          model: string
+          output_token_count: number
+          prompt_version: string
+          session_id: string
+        }
+        Insert: {
+          generated_at?: string
+          id?: string
+          input_token_count: number
+          insight_markdown: string
+          model: string
+          output_token_count: number
+          prompt_version: string
+          session_id: string
+        }
+        Update: {
+          generated_at?: string
+          id?: string
+          input_token_count?: number
+          insight_markdown?: string
+          model?: string
+          output_token_count?: number
+          prompt_version?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_insights_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_metrics: {
         Row: {
           algo_version: string | null
