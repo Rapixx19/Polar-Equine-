@@ -3,6 +3,7 @@
 // only; reconnect/backoff lands with the batcher in Slice 6.
 
 import { decodeHR, type HRSample } from "./hr-codec";
+import { PMD_SERVICE_UUID } from "./pmd-types";
 
 export type ConnectionState =
   | "idle"
@@ -19,9 +20,15 @@ export async function pairAndConnect(): Promise<{
   if (typeof navigator === "undefined" || !("bluetooth" in navigator)) {
     throw new Error("Web Bluetooth unavailable in this browser");
   }
+  // PMD must be in optionalServices or Chrome silently refuses
+  // `getPrimaryService(PMD_SERVICE_UUID)` with a SecurityError. That's the
+  // reason ACC/ECG stayed at 0 in the 2026-05-14 live test even after the
+  // codec fix landed — pairing succeeded, HR worked (standard service is
+  // in filters), but the proprietary service was blocked at the OS level
+  // and the error was caught by the PMD start try/catch upstream.
   const device = await navigator.bluetooth.requestDevice({
     filters: [{ services: ["heart_rate"] }],
-    optionalServices: ["battery_service"],
+    optionalServices: ["battery_service", PMD_SERVICE_UUID],
   });
   if (!device.gatt) {
     throw new Error("Selected device exposes no GATT server");

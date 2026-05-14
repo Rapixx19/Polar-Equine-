@@ -50,6 +50,24 @@ export async function startPmdStreams(
   // acknowledgement) per spec. We don't act on the acks here, but the H10
   // requires the subscription before it will honour writes.
   await control.startNotifications();
+  // Surface the H10's control-point ACKs. Per PMD spec a "start measurement"
+  // ACK has shape [0xF0, 0x02, <stream>, <err_code>, ...]; err_code != 0
+  // means the H10 rejected our parameters (e.g. unsupported sample rate or
+  // resolution). The GATT WRITE itself can succeed even when the H10
+  // refuses the start — so without this we'd assume the stream was running.
+  const onControlAck = (event: Event) => {
+    const target = event.target as BluetoothRemoteGATTCharacteristic | null;
+    const v = target?.value;
+    if (!v || v.byteLength < 4) return;
+    if (v.getUint8(0) !== 0xf0 || v.getUint8(1) !== 0x02) return;
+    const stream = v.getUint8(2);
+    const err = v.getUint8(3);
+    if (err !== 0) {
+      console.error("[pmd] start_rejected", { stream, err_code: err });
+    }
+  };
+  control.addEventListener("characteristicvaluechanged", onControlAck);
+
   // Isolate per-stream writes: if the H10 rejects one config (e.g. an
   // unsupported sample rate), we still want the other stream to come up.
   // Earlier versions awaited both in sequence so a single GATT error tanked
@@ -69,6 +87,7 @@ export async function startPmdStreams(
     console.error("[pmd] ecg_start_failed", err);
   }
   if (!accStarted && !ecgStarted) {
+    control.removeEventListener("characteristicvaluechanged", onControlAck);
     throw new Error("pmd_start_failed_both_streams");
   }
 
@@ -129,6 +148,7 @@ export async function startPmdStreams(
     if (stopped) return;
     stopped = true;
     data.removeEventListener("characteristicvaluechanged", handle);
+    control.removeEventListener("characteristicvaluechanged", onControlAck);
     try {
       await data.stopNotifications();
     } catch (err) {
