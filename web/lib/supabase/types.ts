@@ -252,6 +252,7 @@ export type Database = {
       }
       horses: {
         Row: {
+          admin_notes: string | null
           breed: string | null
           created_at: string | null
           created_by: string | null
@@ -265,8 +266,11 @@ export type Database = {
           photo_url: string | null
           sex: string | null
           stable_id: string | null
+          target_ride_minutes: number | null
+          target_session_count: number | null
         }
         Insert: {
+          admin_notes?: string | null
           breed?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -280,8 +284,11 @@ export type Database = {
           photo_url?: string | null
           sex?: string | null
           stable_id?: string | null
+          target_ride_minutes?: number | null
+          target_session_count?: number | null
         }
         Update: {
+          admin_notes?: string | null
           breed?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -295,6 +302,8 @@ export type Database = {
           photo_url?: string | null
           sex?: string | null
           stable_id?: string | null
+          target_ride_minutes?: number | null
+          target_session_count?: number | null
         }
         Relationships: []
       }
