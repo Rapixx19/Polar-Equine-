@@ -50,8 +50,27 @@ export async function startPmdStreams(
   // acknowledgement) per spec. We don't act on the acks here, but the H10
   // requires the subscription before it will honour writes.
   await control.startNotifications();
-  await control.writeValue(PMD_START_ACC.buffer as ArrayBuffer);
-  await control.writeValue(PMD_START_ECG.buffer as ArrayBuffer);
+  // Isolate per-stream writes: if the H10 rejects one config (e.g. an
+  // unsupported sample rate), we still want the other stream to come up.
+  // Earlier versions awaited both in sequence so a single GATT error tanked
+  // both — observed live 2026-05-14 when 52 Hz ACC was rejected.
+  let accStarted = false;
+  let ecgStarted = false;
+  try {
+    await control.writeValue(PMD_START_ACC.buffer as ArrayBuffer);
+    accStarted = true;
+  } catch (err) {
+    console.error("[pmd] acc_start_failed", err);
+  }
+  try {
+    await control.writeValue(PMD_START_ECG.buffer as ArrayBuffer);
+    ecgStarted = true;
+  } catch (err) {
+    console.error("[pmd] ecg_start_failed", err);
+  }
+  if (!accStarted && !ecgStarted) {
+    throw new Error("pmd_start_failed_both_streams");
+  }
 
   const anchor: ClockAnchor = { firstPmdNs: BigInt(0), firstWallMs: 0 };
   let anchored = false;
@@ -82,8 +101,8 @@ export async function startPmdStreams(
     const baseTms = anchor.firstWallMs + Number(frame.pmd_ns - anchor.firstPmdNs) / 1_000_000;
     // Samples within one notification are simultaneous from PMD's perspective;
     // spread them across the inter-sample interval so DB timestamps are unique
-    // and ordered. 52 Hz ACC → ~19 ms apart; 130 Hz ECG → ~7.7 ms.
-    const period = frame.type === "acc" ? 1000 / 52 : 1000 / 130;
+    // and ordered. 200 Hz ACC → 5 ms apart; 130 Hz ECG → ~7.7 ms.
+    const period = frame.type === "acc" ? 1000 / 200 : 1000 / 130;
 
     if (frame.type === "acc") {
       const out: AccSample[] = frame.samples.map((s, i) => ({
