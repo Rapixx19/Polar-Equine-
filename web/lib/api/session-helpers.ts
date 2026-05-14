@@ -14,6 +14,7 @@ export const createSessionBody = z
     riding_subtype: z.enum(RIDING_SUBTYPES).nullable().optional(),
     activity_note: z.string().nullable().optional(),
     client_session_id: z.string().uuid(),
+    has_prototype_mount: z.boolean().optional(),
   })
   .superRefine((val, ctx) => {
     const ridingFamily = val.activity_type === "riding" || val.activity_type === "lunging";

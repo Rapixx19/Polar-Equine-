@@ -22,6 +22,7 @@ type SessionRow = {
   start_time: string;
   end_time: string | null;
   status: string;
+  has_prototype_mount: boolean;
   horses: { name: string | null } | null;
   rider_profiles: { display_name: string | null } | null;
 };
@@ -55,7 +56,7 @@ export default async function AdminSessionDetailPage({
   const { data: sessionRow } = await supabase
     .from("sessions")
     .select(
-      "id, rider_id, horse_id, activity_type, start_time, end_time, status, horses(name), rider_profiles(display_name)",
+      "id, rider_id, horse_id, activity_type, start_time, end_time, status, has_prototype_mount, horses(name), rider_profiles(display_name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -157,9 +158,19 @@ export default async function AdminSessionDetailPage({
         <header className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-wide text-[var(--text-faint)]">Admin · Session</p>
-            <h1 className="text-2xl font-light">
-              {session.rider_profiles?.display_name ?? "—"} ·{" "}
-              {session.horses?.name ?? "—"}
+            <h1 className="flex flex-wrap items-center gap-3 text-2xl font-light">
+              <span>
+                {session.rider_profiles?.display_name ?? "—"} ·{" "}
+                {session.horses?.name ?? "—"}
+              </span>
+              {session.has_prototype_mount && (
+                <span
+                  title="Recorded with prototype girth mount"
+                  className="inline-flex items-center rounded-full border border-[var(--lime)]/60 bg-[var(--lime)]/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--lime)]"
+                >
+                  Prototype mount
+                </span>
+              )}
             </h1>
           </div>
           <div className="flex items-center gap-3 text-sm">

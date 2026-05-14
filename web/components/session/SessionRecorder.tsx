@@ -9,6 +9,7 @@ import { PairButton } from "@/components/ble/PairButton";
 import { UnsupportedBanner } from "@/components/ble/UnsupportedBanner";
 import { PreSessionGuard } from "@/components/recording/PreSessionGuard";
 import { LiveVitals } from "@/components/session/LiveVitals";
+import { PrototypeMountToggle } from "@/components/session/PrototypeMountToggle";
 import { RecorderButtons } from "@/components/session/RecorderButtons";
 import { SessionContextChip } from "@/components/session/SessionContextChip";
 import { SignalQualityBanner } from "@/components/session/SignalQualityBanner";
@@ -49,6 +50,7 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
   const [deviceName, setDeviceName] = useState<string | undefined>();
   const [sample, setSample] = useState<HRSample | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
+  const [hasPrototypeMount, setHasPrototypeMount] = useState(false);
   // Last HR frame timestamp from the strap (not the GATT link). Used to
   // distinguish "GATT linked" from "actually receiving heartbeats" — these
   // come apart when contact is dry or the OS reports a ghost pairing, in
@@ -164,6 +166,13 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
         </p>
       )}
 
+      {!isRecording && !isStopping && (
+        <PrototypeMountToggle
+          checked={hasPrototypeMount}
+          onChange={setHasPrototypeMount}
+        />
+      )}
+
       <PairButton
         state={connectionState}
         onStateChange={handlePairingStateChange}
@@ -240,6 +249,7 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
           void ingest.start(horse.id, activity, {
             ridingSubtype,
             activityNote,
+            hasPrototypeMount,
             bleServer: serverRef.current,
           })
         }
