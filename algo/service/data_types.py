@@ -40,6 +40,25 @@ class SamplesHR:
 
 
 @dataclass(frozen=True)
+class SamplesAcc:
+    timestamp_ms: NDArray[np.int64]
+    ax: NDArray[np.float64]
+    ay: NDArray[np.float64]
+    az: NDArray[np.float64]
+
+
+@dataclass(frozen=True)
+class LabelRow:
+    session_id: str
+    start_ms: int
+    end_ms: int
+    label_type: str  # walk|trot|canter_gallop|jump|rest|other
+    jump_count: int | None
+    confidence: float | None
+    source: str = "auto"
+
+
+@dataclass(frozen=True)
 class SessionMetricsRow:
     session_id: str
     duration_s: int

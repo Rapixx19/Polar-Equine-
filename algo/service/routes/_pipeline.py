@@ -1,9 +1,5 @@
-"""Shared /compute + /recompute pipeline. Rule 1 ≤150 lines.
-
-Both routes do the same work after the 409/delete branch, so the inner
-"clean → HRV → workload → write → mark complete" sequence lives here. Any
-unhandled exception flips ``metrics_status='failed'`` before re-raising — Rule 9.
-"""
+"""Shared /compute + /recompute pipeline. Rule 1 ≤150 lines. Any unhandled
+exception flips ``metrics_status='failed'`` before re-raising — Rule 9."""
 
 from __future__ import annotations
 
@@ -22,6 +18,7 @@ from service.data import (
 )
 from service.data_types import REST_ACTIVITIES, SamplesHR, SessionMetricsRow, SessionRow
 from service.models import ComputeResponse
+from service.routes._gait import label_session_from_acc
 
 log = structlog.get_logger()
 
@@ -73,6 +70,7 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             set_metrics_status(session.id, "failed")
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+        label_count = _label_gait_safely(session.id)
         set_metrics_status(session.id, "complete")
     except HTTPException:
         raise
@@ -83,15 +81,23 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
     return ComputeResponse(
         status="complete",
         metrics_id=session.id,
-        label_count=0,
+        label_count=label_count,
         algo_version=algo_version,
     )
 
 
-def _compute_recovery(
-    session: SessionRow, samples: SamplesHR
-) -> tuple[float | None, float | None]:
-    """Three-state: rest → (None, None); else → fit() and surface tau_s + quality."""
+def _label_gait_safely(session_id: str) -> int:
+    # Auto-labels are nice-to-have; metrics are the contract. Failure here
+    # must not flip metrics_status — log and keep going.
+    try:
+        return label_session_from_acc(session_id)
+    except Exception as exc:
+        log.warning("gait.labelling_failed", session_id=session_id, error=str(exc))
+        return 0
+
+
+def _compute_recovery(session: SessionRow, samples: SamplesHR) -> tuple[float | None, float | None]:
+    # Three-state: rest → (None, None); else → fit() and surface tau_s + quality.
     if session.activity_type in REST_ACTIVITIES:
         log.info("recovery.skipped_rest", session_id=session.id, activity=session.activity_type)
         return None, None
