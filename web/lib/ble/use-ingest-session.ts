@@ -6,7 +6,7 @@ import { HRBatcher } from "@/lib/ble/batcher";
 import { ACCBatcher } from "@/lib/ble/acc-batcher";
 import { ECGBatcher } from "@/lib/ble/ecg-batcher";
 import type { HRSample } from "@/lib/ble/hr-codec";
-import { startPmdStreams } from "@/lib/ble/pmd-service";
+import { startPmdStreams, type PmdLifecycleEvent } from "@/lib/ble/pmd-service";
 import type { ActivityType, RidingSubtype } from "@/lib/activities";
 import { classifyStartError, startErrorMessage } from "@/lib/ble/start-error";
 
@@ -39,6 +39,12 @@ export function useIngestSession() {
   const [streams, setStreams] = useState<StreamStats>(EMPTY_STREAM_STATS);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [pmdEnabled, setPmdEnabled] = useState(false);
+  // Tagged + timestamped lifecycle entries from startPmdStreams so the UI can
+  // show exactly what failed (service blocked, ACC rejected by H10, etc.)
+  // without forcing the rider into DevTools. Capped at 20 entries.
+  const [pmdEvents, setPmdEvents] = useState<
+    Array<PmdLifecycleEvent & { at: number }>
+  >([]);
   const hrBatcherRef = useRef<HRBatcher | null>(null);
   const accBatcherRef = useRef<ACCBatcher | null>(null);
   const ecgBatcherRef = useRef<ECGBatcher | null>(null);
@@ -55,6 +61,7 @@ export function useIngestSession() {
     setStreams(EMPTY_STREAM_STATS);
     setStartedAt(null);
     setPmdEnabled(Boolean(options.bleServer));
+    setPmdEvents([]);
     const clientSessionId = crypto.randomUUID();
     const ridingFamily = activityType === "riding" || activityType === "lunging";
     const body: Record<string, unknown> = {
@@ -124,6 +131,11 @@ export function useIngestSession() {
             }
           },
           onDecodeError: (info) => console.warn("[pmd] decode_error", info),
+          onPmdEvent: (event) => {
+            setPmdEvents((prev) =>
+              [...prev, { ...event, at: Date.now() }].slice(-20),
+            );
+          },
         });
       } catch (err) {
         // PMD start failure must not abort the HR session — HR remains the
@@ -181,6 +193,7 @@ export function useIngestSession() {
     streams,
     startedAt,
     pmdEnabled,
+    pmdEvents,
     start,
     stop,
     onSample,

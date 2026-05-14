@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import type { HRSample } from "@/lib/ble/hr-codec";
+import type { PmdLifecycleEvent } from "@/lib/ble/pmd-service";
 import type { StreamStats } from "@/lib/ble/use-ingest-session";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
   streams: StreamStats;
   startedAt: number | null;
   pmdEnabled: boolean;
+  pmdEvents: Array<PmdLifecycleEvent & { at: number }>;
 };
 
 // A stream is "live" when its last sample arrived within this many ms.
@@ -21,7 +23,13 @@ const LIVE_BUDGET_MS = 2500;
 // first frame. Below this we show "starting…" instead of "stalled".
 const STARTING_BUDGET_MS = 4000;
 
-export function LiveVitals({ sample, streams, startedAt, pmdEnabled }: Props) {
+export function LiveVitals({
+  sample,
+  streams,
+  startedAt,
+  pmdEnabled,
+  pmdEvents,
+}: Props) {
   const now = useNow(500);
   const bpm = sample?.hr_bpm ?? 0;
   const hrStatus = streamStatus(streams.hr, startedAt, now, true);
@@ -77,8 +85,83 @@ export function LiveVitals({ sample, streams, startedAt, pmdEnabled }: Props) {
       </div>
 
       <ConfirmationBanner allLive={allLive} pmdEnabled={pmdEnabled} />
+
+      {pmdEnabled && (accStatus !== "live" || ecgStatus !== "live") && (
+        <PmdDiagnostics events={pmdEvents} accStatus={accStatus} ecgStatus={ecgStatus} />
+      )}
     </div>
   );
+}
+
+function PmdDiagnostics({
+  events,
+  accStatus,
+  ecgStatus,
+}: {
+  events: Array<PmdLifecycleEvent & { at: number }>;
+  accStatus: StreamState;
+  ecgStatus: StreamState;
+}) {
+  const summary = summariseEvents(events, accStatus, ecgStatus);
+  return (
+    <details className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-[var(--text-muted)]">
+      <summary className="cursor-pointer font-medium text-amber-700">
+        ⚠ {summary}
+      </summary>
+      <ul className="mt-2 space-y-1 font-mono">
+        {events.length === 0 && (
+          <li className="text-[var(--text-faint)]">
+            No PMD lifecycle events yet — the start command may not have run.
+            If you just paired, make sure you went through the picker (not just
+            a cached reconnect) so the browser grants PMD access.
+          </li>
+        )}
+        {events.map((e, i) => (
+          <li key={i}>{formatEvent(e)}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function summariseEvents(
+  events: Array<PmdLifecycleEvent & { at: number }>,
+  accStatus: StreamState,
+  ecgStatus: StreamState,
+): string {
+  const blocked = events.find((e) => e.kind === "service_blocked");
+  if (blocked) return "PMD service blocked by browser — re-pair the band";
+  const accFail = events.find((e) => e.kind === "acc_start_failed");
+  const ecgFail = events.find((e) => e.kind === "ecg_start_failed");
+  const accReject = events.find(
+    (e) => e.kind === "ack" && e.stream === 0x02 && e.err_code !== 0,
+  );
+  const ecgReject = events.find(
+    (e) => e.kind === "ack" && e.stream === 0x00 && e.err_code !== 0,
+  );
+  if (accFail || ecgFail) return "H10 refused one or more start commands";
+  if (accReject || ecgReject) return "H10 rejected stream parameters";
+  if (accStatus !== "live" || ecgStatus !== "live") {
+    return "Streams not flowing yet — tap to see diagnostics";
+  }
+  return "Diagnostics";
+}
+
+function formatEvent(e: PmdLifecycleEvent & { at: number }): string {
+  const ts = new Date(e.at).toISOString().slice(11, 23);
+  switch (e.kind) {
+    case "service_blocked":
+      return `${ts} service_blocked: ${e.message}`;
+    case "acc_start_failed":
+      return `${ts} acc_start_failed: ${e.message}`;
+    case "ecg_start_failed":
+      return `${ts} ecg_start_failed: ${e.message}`;
+    case "ack": {
+      const streamName = e.stream === 0x00 ? "ECG" : e.stream === 0x02 ? "ACC" : `0x${e.stream.toString(16)}`;
+      const ok = e.err_code === 0 ? "ok" : `ERR 0x${e.err_code.toString(16)}`;
+      return `${ts} ack ${streamName} → ${ok}`;
+    }
+  }
 }
 
 type StreamState = "waiting" | "starting" | "live" | "stalled" | "disabled";
