@@ -29,6 +29,7 @@ type Label = {
   jump_count: number;
   correction_kind: string;
 };
+type SignalEvent = { kind: "weak" | "lost"; t_start_ms: number; t_end_ms: number };
 
 const MAX_CHART_POINTS = 500;
 
@@ -75,6 +76,7 @@ export function SessionDetailClient({
   durationMs,
   initialInsight,
   sourceCounts,
+  signalEvents,
 }: {
   sessionId: string;
   samples: Sample[];
@@ -83,6 +85,7 @@ export function SessionDetailClient({
   durationMs?: number;
   initialInsight: InitialInsight | null;
   sourceCounts: SourceCounts;
+  signalEvents: SignalEvent[];
 }) {
   const chartSamples = useMemo(() => downsample(samples), [samples]);
   const segments = useMemo(
@@ -94,8 +97,48 @@ export function SessionDetailClient({
     <div className="space-y-6">
       <section>
         <h2 className="mb-2 text-sm font-medium text-[var(--text-muted)]">Heart rate</h2>
-        <HRChart samples={chartSamples} segments={segments} durationMs={durationMs} height={260} />
+        <HRChart
+          samples={chartSamples}
+          segments={segments}
+          signalEvents={signalEvents}
+          durationMs={durationMs}
+          height={260}
+        />
       </section>
+
+      {signalEvents.length > 0 && (
+        <section>
+          <h2 className="mb-2 text-sm font-medium text-[var(--text-muted)]">
+            Signal-quality events
+          </h2>
+          <ul className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-sm">
+            {signalEvents.map((e, i) => (
+              <li
+                key={`${e.kind}-${e.t_start_ms}-${i}`}
+                className="grid grid-cols-12 items-center gap-3 p-3"
+              >
+                <span className="col-span-3 tabular-nums text-[var(--text-muted)]">
+                  {fmtRange(e.t_start_ms, e.t_end_ms)}
+                </span>
+                <span className="col-span-3">
+                  <span
+                    className={
+                      e.kind === "lost"
+                        ? "rounded-full bg-[var(--red)]/15 px-2 py-0.5 text-xs text-[var(--red)]"
+                        : "rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700"
+                    }
+                  >
+                    {e.kind === "lost" ? "Lost contact" : "Noisy"}
+                  </span>
+                </span>
+                <span className="col-span-6 tabular-nums text-right text-xs text-[var(--text-faint)]">
+                  {Math.max(1, Math.round((e.t_end_ms - e.t_start_ms) / 1000))} s
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section>
         <h2 className="mb-2 text-sm font-medium text-[var(--text-muted)]">Metrics</h2>

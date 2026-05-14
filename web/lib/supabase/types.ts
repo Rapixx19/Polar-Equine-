@@ -595,6 +595,41 @@ export type Database = {
           },
         ]
       }
+      session_signal_events: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          session_id: string
+          t_end_ms: number
+          t_start_ms: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind: string
+          session_id: string
+          t_end_ms: number
+          t_start_ms: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          session_id?: string
+          t_end_ms?: number
+          t_start_ms?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_signal_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       session_metrics: {
         Row: {
           algo_version: string | null

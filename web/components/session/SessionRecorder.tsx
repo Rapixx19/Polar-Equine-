@@ -11,6 +11,7 @@ import { PreSessionGuard } from "@/components/recording/PreSessionGuard";
 import { LiveVitals } from "@/components/session/LiveVitals";
 import { RecorderButtons } from "@/components/session/RecorderButtons";
 import { SessionContextChip } from "@/components/session/SessionContextChip";
+import { SignalQualityBanner } from "@/components/session/SignalQualityBanner";
 import {
   type ActivityType,
   type RidingSubtype,
@@ -18,6 +19,7 @@ import {
 import type { ConnectionState } from "@/lib/ble/connection";
 import type { HRSample } from "@/lib/ble/hr-codec";
 import { useIngestSession } from "@/lib/ble/use-ingest-session";
+import { useQualityEvents } from "@/lib/quality/use-quality-events";
 import { useCaptureSession } from "@/lib/ui/use-capture-session";
 
 type Props = {
@@ -64,6 +66,12 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
     active: ingest.state === "recording",
     sessionId: ingest.sessionId,
     latestSample: sample,
+  });
+  useQualityEvents({
+    active: ingest.state === "recording",
+    sessionId: ingest.sessionId,
+    startedAt: ingest.startedAt,
+    state: captureQuality.state,
   });
 
   useEffect(() => {
@@ -204,6 +212,7 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
 
       {(isRecording || isStopping) && (
         <>
+          <SignalQualityBanner state={captureQuality.state} />
           <LiveVitals
             sample={sample}
             streams={ingest.streams}

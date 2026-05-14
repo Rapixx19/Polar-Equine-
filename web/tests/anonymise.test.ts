@@ -57,6 +57,7 @@ describe("anonymiseBundle", () => {
           algo_version: "manual-v1",
         },
       ],
+      signal_events: [],
       export_id: "exp-1",
       exported_at: "2026-05-13T11:00:00Z",
     });
@@ -97,6 +98,7 @@ describe("anonymiseBundle", () => {
           algo_version: "manual-v1",
         },
       ],
+      signal_events: [],
       export_id: "exp-2",
       exported_at: "2026-05-13T11:00:00Z",
     });
@@ -120,11 +122,38 @@ describe("anonymiseBundle", () => {
       session_metrics: null,
       samples_hr: [],
       label_corrections: [],
+      signal_events: [],
       export_id: "exp-3",
       exported_at: "2026-05-13T11:00:00Z",
     });
     const json = JSON.stringify(out);
     expect(json.includes(RIDER_ID)).toBe(false);
     expect(json.includes(HORSE_ID)).toBe(false);
+  });
+
+  it("passes signal_events through unchanged", () => {
+    const out = anonymiseBundle({
+      session: {
+        id: SESSION_ID,
+        rider_id: RIDER_ID,
+        horse_id: HORSE_ID,
+        activity_type: "riding",
+        start_time: "2026-05-13T10:00:00.000Z",
+        end_time: "2026-05-13T10:30:00.000Z",
+        status: "approved",
+      },
+      session_metrics: null,
+      samples_hr: [],
+      label_corrections: [],
+      signal_events: [
+        { kind: "weak", t_start_ms: 120_000, t_end_ms: 135_000 },
+        { kind: "lost", t_start_ms: 600_000, t_end_ms: 620_000 },
+      ],
+      export_id: "exp-4",
+      exported_at: "2026-05-13T11:00:00Z",
+    });
+    expect(out.signal_events).toHaveLength(2);
+    expect(out.signal_events[0]).toEqual({ kind: "weak", t_start_ms: 120_000, t_end_ms: 135_000 });
+    expect(out.signal_events[1].kind).toBe("lost");
   });
 });

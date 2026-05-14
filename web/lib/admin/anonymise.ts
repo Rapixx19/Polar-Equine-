@@ -58,11 +58,18 @@ export type RawLabelCorrection = {
   algo_version: string;
 };
 
+export type RawSignalEvent = {
+  kind: "weak" | "lost";
+  t_start_ms: number;
+  t_end_ms: number;
+};
+
 export type RawBundle = {
   session: RawSession;
   session_metrics: Record<string, unknown> | null;
   samples_hr: RawSampleHr[];
   label_corrections: RawLabelCorrection[];
+  signal_events: RawSignalEvent[];
   export_id: string;
   exported_at: string;
 };
@@ -95,6 +102,7 @@ export type AnonymisedBundle = {
     correction_kind: string;
     algo_version: string;
   }>;
+  signal_events: Array<{ kind: "weak" | "lost"; t_start_ms: number; t_end_ms: number }>;
 };
 
 export function anonymiseBundle(input: RawBundle): AnonymisedBundle {
@@ -135,6 +143,11 @@ export function anonymiseBundle(input: RawBundle): AnonymisedBundle {
       jump_count: l.corrected_jump_count,
       correction_kind: l.correction_kind,
       algo_version: l.algo_version,
+    })),
+    signal_events: input.signal_events.map((e) => ({
+      kind: e.kind,
+      t_start_ms: e.t_start_ms,
+      t_end_ms: e.t_end_ms,
     })),
   };
 }
