@@ -26,22 +26,21 @@ export type DecodedFrame =
   | { type: "acc"; pmd_ns: bigint; samples: Array<{ ax_mg: number; ay_mg: number; az_mg: number }> }
   | { type: "ecg"; pmd_ns: bigint; samples: Array<{ uv: number }> };
 
-// Control-point start sequences. Setting-type opcodes per Polar PMD spec:
-// 0x00=measurement-type/op, 0x04=sample_rate, 0x05=resolution, 0x06=range.
-// (Earlier versions of this file used 0x00/0x01/0x02 for sample_rate/
-// resolution/range — those opcodes don't exist in the spec, and the H10
-// silently rejects the start command, which is why both ACC and ECG were
-// returning 0 rows for every recorded session through 2026-05-14. Cross-
-// checked against the bleakheart reference implementation.)
+// Control-point start sequences. Setting-type opcodes per the Polar PMD
+// spec (and the bleakheart reference): 0x00=SAMPLE_RATE, 0x01=RESOLUTION,
+// 0x02=RANGE. Commit 994a7cc moved these to 0x04/0x05/0x06 based on a
+// misread of the spec; the H10 rejected the resulting start commands
+// with err_code 5 (INVALID_PARAMETER) on 2026-05-14, observed via the
+// control-point ACK listener. Restored here.
+//
+// ACC config: 200 Hz / 16-bit / ±2g. The H10 supports rates 25/50/100/200
+// only — 52 Hz is the OH1 default and would also be rejected.
 export const PMD_START_ECG = new Uint8Array([
-  0x02, 0x00, 0x04, 0x01, 0x82, 0x00, 0x05, 0x01, 0x0e, 0x00,
+  0x02, 0x00, 0x00, 0x01, 0x82, 0x00, 0x01, 0x01, 0x0e, 0x00,
 ]);
 
-// 200 Hz / 16-bit / ±2g — H10 supports rates 25/50/100/200 only (52 Hz is
-// the OH1 default and the H10 rejects it once the start command is parsed
-// correctly). Mirrors bleakheart's known-working H10 ACC config.
 export const PMD_START_ACC = new Uint8Array([
-  0x02, 0x02, 0x04, 0x01, 0xc8, 0x00, 0x05, 0x01, 0x10, 0x00, 0x06, 0x01, 0x02, 0x00,
+  0x02, 0x02, 0x00, 0x01, 0xc8, 0x00, 0x01, 0x01, 0x10, 0x00, 0x02, 0x01, 0x02, 0x00,
 ]);
 
 export const PMD_SERVICE_UUID = "fb005c80-02e7-f387-1cad-8acd2d8df0c8";
