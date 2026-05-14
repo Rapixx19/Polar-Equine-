@@ -43,6 +43,7 @@ describe("fetchHomeSummary", () => {
         activity_type: "riding",
         riding_subtype: "heavy_jumping",
         activity_note: null,
+        last_ingest_at: "2026-05-06T11:59:50.000Z",
         horses: { name: "Luna" },
         session_metrics: null,
       }),
@@ -55,6 +56,49 @@ describe("fetchHomeSummary", () => {
     expect(summary.session.horseName).toBe("Luna");
     expect(summary.session.activityLabel).toBe("Riding · Heavy jumping");
     expect(summary.session.startedAtRelative).toBe("30m ago");
+    expect(summary.session.looksStuck).toBe(false);
+  });
+
+  it("flags looksStuck when last_ingest_at is older than 60 s", async () => {
+    const summary = await fetchHomeSummary(
+      buildClient({
+        id: SESSION_ID,
+        start_time: "2026-05-06T11:30:00.000Z",
+        end_time: null,
+        status: "active",
+        activity_type: "riding",
+        riding_subtype: null,
+        activity_note: null,
+        last_ingest_at: "2026-05-06T11:55:00.000Z",
+        horses: { name: "Luna" },
+        session_metrics: null,
+      }),
+      RIDER_ID,
+      NOW,
+    );
+    if (summary.state !== "live") throw new Error("expected live");
+    expect(summary.session.looksStuck).toBe(true);
+  });
+
+  it("flags looksStuck when last_ingest_at is null", async () => {
+    const summary = await fetchHomeSummary(
+      buildClient({
+        id: SESSION_ID,
+        start_time: "2026-05-06T11:59:30.000Z",
+        end_time: null,
+        status: "active",
+        activity_type: "riding",
+        riding_subtype: null,
+        activity_note: null,
+        last_ingest_at: null,
+        horses: { name: "Luna" },
+        session_metrics: null,
+      }),
+      RIDER_ID,
+      NOW,
+    );
+    if (summary.state !== "live") throw new Error("expected live");
+    expect(summary.session.looksStuck).toBe(true);
   });
 
   it("returns recap for a completed session with metrics", async () => {
@@ -115,6 +159,7 @@ describe("fetchHomeSummary", () => {
         activity_type: "other",
         riding_subtype: null,
         activity_note: "Polo match",
+        last_ingest_at: "2026-05-06T11:59:55.000Z",
         horses: { name: "Luna" },
         session_metrics: null,
       }),
@@ -135,6 +180,7 @@ describe("fetchHomeSummary", () => {
         activity_type: "riding",
         riding_subtype: null,
         activity_note: null,
+        last_ingest_at: "2026-05-06T11:59:55.000Z",
         horses: { name: "Luna" },
         session_metrics: null,
       }),

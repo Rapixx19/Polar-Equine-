@@ -4,6 +4,13 @@ import { activityLabel } from "@/components/session/ActivityTile";
 import { RIDING_SUBTYPE_UI, type ActivityType, type RidingSubtype } from "@/lib/activities";
 import type { Database } from "@/lib/supabase/types";
 
+// Real recordings POST every 2 s and the ingest route refreshes
+// last_ingest_at on each call, so a 60-s gap means the recording is
+// orphaned (laptop closed, browser killed). The 12h abandon-stale cron
+// will eventually clean it up server-side; this surfaces it to the rider
+// immediately so they can end it themselves.
+const STALE_INGEST_MS = 60_000;
+
 export type HomeSummary =
   | { state: "empty" }
   | {
@@ -13,6 +20,11 @@ export type HomeSummary =
         horseName: string;
         activityLabel: string;
         startedAtRelative: string;
+        // True when no ingest has landed for longer than STALE_INGEST_MS.
+        // Computed server-side using the same `now` the relative-time uses,
+        // so the home banner can flag orphaned sessions without doing
+        // wall-clock math during render.
+        looksStuck: boolean;
       };
     }
   | {
@@ -36,6 +48,7 @@ type SessionRow = {
   activity_type: string;
   riding_subtype: string | null;
   activity_note: string | null;
+  last_ingest_at: string | null;
   horses: { name: string } | null;
   session_metrics: { hr_avg: number | null; hr_peak: number | null; duration_s: number | null } | null;
 };
@@ -48,7 +61,7 @@ export async function fetchHomeSummary(
   const { data } = await supabase
     .from("sessions")
     .select(
-      "id, start_time, end_time, status, activity_type, riding_subtype, activity_note, horses(name), session_metrics(hr_avg, hr_peak, duration_s)",
+      "id, start_time, end_time, status, activity_type, riding_subtype, activity_note, last_ingest_at, horses(name), session_metrics(hr_avg, hr_peak, duration_s)",
     )
     .eq("rider_id", riderId)
     .order("start_time", { ascending: false })
@@ -61,6 +74,11 @@ export async function fetchHomeSummary(
   const label = formatActivityLabel(data.activity_type, data.riding_subtype, data.activity_note);
 
   if (data.status === "active") {
+    const lastIngestMs = data.last_ingest_at
+      ? new Date(data.last_ingest_at).getTime()
+      : null;
+    const looksStuck =
+      lastIngestMs === null || now.getTime() - lastIngestMs > STALE_INGEST_MS;
     return {
       state: "live",
       session: {
@@ -68,6 +86,7 @@ export async function fetchHomeSummary(
         horseName,
         activityLabel: label,
         startedAtRelative: relativeFromIso(data.start_time, now),
+        looksStuck,
       },
     };
   }
