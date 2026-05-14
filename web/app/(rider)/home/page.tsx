@@ -63,6 +63,7 @@ export default async function HomePage() {
             horseName={summary.session.horseName}
             activityLabel={summary.session.activityLabel}
             startedAtRelative={summary.session.startedAtRelative}
+            looksStuck={summary.session.looksStuck}
           />
         )}
 
