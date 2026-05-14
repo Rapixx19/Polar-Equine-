@@ -16,8 +16,20 @@ import type { DecodedFrame } from "./pmd-types";
 
 const STREAM_ECG = 0x00;
 const STREAM_ACC = 0x02;
-const FRAME_FULL = 0x00;
-const FRAME_DELTA = 0x80;
+
+// Per PMD spec the frame_type byte encodes the per-sample width:
+//   ECG: 0x00 = signed 24-bit µV (the only frame the H10 emits — 14-bit
+//        resolution stored in 24-bit signed words).
+//   ACC: 0x01 = signed int16 mg per axis (what the H10 actually emits when
+//        we request 16-bit resolution; earlier versions of this codec
+//        checked for 0x00 and silently dropped every real frame).
+//   ACC: 0x82 = delta frame on top of a 16-bit reference. Spec defines other
+//        widths (0x80=8-bit ref, 0x83=24-bit ref) but at 52 Hz / 16-bit the
+//        H10 in practice sends FULL 0x01 frames. We accept the 16-bit delta
+//        form defensively in case firmware switches.
+const ECG_FULL_24BIT = 0x00;
+const ACC_FULL_16BIT = 0x01;
+const ACC_DELTA_16BIT = 0x82;
 
 const HEADER_LEN = 10; // 1 stream + 8 ts + 1 frame_type
 
@@ -27,13 +39,13 @@ export function decodePmdFrame(view: DataView): DecodedFrame | null {
   const pmd_ns = view.getBigUint64(1, true);
   const frame_type = view.getUint8(9);
 
-  if (stream === STREAM_ECG && frame_type === FRAME_FULL) {
+  if (stream === STREAM_ECG && frame_type === ECG_FULL_24BIT) {
     return { type: "ecg", pmd_ns, samples: decodeEcgFull(view, HEADER_LEN) };
   }
-  if (stream === STREAM_ACC && frame_type === FRAME_FULL) {
+  if (stream === STREAM_ACC && frame_type === ACC_FULL_16BIT) {
     return { type: "acc", pmd_ns, samples: decodeAccFull(view, HEADER_LEN) };
   }
-  if (stream === STREAM_ACC && frame_type === FRAME_DELTA) {
+  if (stream === STREAM_ACC && frame_type === ACC_DELTA_16BIT) {
     return { type: "acc", pmd_ns, samples: decodeAccDelta(view, HEADER_LEN) };
   }
   return null;

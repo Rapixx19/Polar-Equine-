@@ -68,11 +68,16 @@ async function postWithOneRetry(sessionId: string, rows: EcgSampleWire[]): Promi
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ session_id: sessionId, samples: { ecg: rows } }),
       });
-    } catch {
+    } catch (e) {
+      console.warn("[ecg-batch] network_error", e);
       continue;
     }
     if (res.ok) return true;
-    if (res.status >= 400 && res.status < 500) return false;
+    if (res.status >= 400 && res.status < 500) {
+      const body = await res.text().catch(() => "");
+      console.warn(`[ecg-batch] post ${res.status}`, body.slice(0, 240), "first_row=", rows[0]);
+      return false;
+    }
   }
   return false;
 }

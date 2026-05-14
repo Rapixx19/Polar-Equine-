@@ -15,9 +15,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const parsed = ingestSamplesBody.safeParse(await req.json().catch(() => null));
+  const rawBody = await req.json().catch(() => null);
+  const parsed = ingestSamplesBody.safeParse(rawBody);
   if (!parsed.success) {
-    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+    // First failing issue is enough to diagnose; full list would flood the log
+    // on a long batch where every row fails the same cap.
+    const first = parsed.error.issues[0];
+    const sampleShape = sampleCountsOf(rawBody);
+    console.error("ingest_invalid_request", {
+      path: first?.path,
+      code: first?.code,
+      message: first?.message,
+      counts: sampleShape,
+    });
+    return NextResponse.json(
+      { error: "invalid_request", detail: first?.message ?? null, path: first?.path ?? null },
+      { status: 400 },
+    );
   }
 
   const { session_id, samples } = parsed.data;
@@ -96,8 +110,20 @@ function classifyInsertError(
 ): NextResponse | null {
   if (!err) return null;
   if (err.code === "42501") {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    return NextResponse.json({ error: "forbidden", stream }, { status: 403 });
   }
   console.error("ingest_failed", { stream, code: err.code, message: err.message });
-  return NextResponse.json({ error: "ingest_failed" }, { status: 500 });
+  return NextResponse.json({ error: "ingest_failed", stream, detail: err.message ?? null }, { status: 500 });
+}
+
+function sampleCountsOf(body: unknown): { hr: number; acc: number; ecg: number } | null {
+  if (!body || typeof body !== "object") return null;
+  const samples = (body as { samples?: unknown }).samples;
+  if (!samples || typeof samples !== "object") return null;
+  const s = samples as { hr?: unknown[]; acc?: unknown[]; ecg?: unknown[] };
+  return {
+    hr: Array.isArray(s.hr) ? s.hr.length : 0,
+    acc: Array.isArray(s.acc) ? s.acc.length : 0,
+    ecg: Array.isArray(s.ecg) ? s.ecg.length : 0,
+  };
 }

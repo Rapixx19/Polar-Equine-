@@ -68,7 +68,7 @@ describe("decodePmdFrame", () => {
       0xe8, 0x03, 0x18, 0xfc, 0x00, 0x04, // (1000, -1000, 1024)
       0x00, 0x00, 0x00, 0x00, 0xff, 0x7f, // (0, 0, 32767)
     ];
-    const bytes = [...header(0x02, 0x00, BigInt(999)), ...payload];
+    const bytes = [...header(0x02, 0x01, BigInt(999)), ...payload];
     const frame = decodePmdFrame(toView(bytes));
     expect(frame?.type).toBe("acc");
     if (frame?.type !== "acc") throw new Error("type narrow");
@@ -90,7 +90,7 @@ describe("decodePmdFrame", () => {
       [-1, 0, 2],
     ];
     const block = [0x04, 0x02, ...packDeltas(deltas, 4)];
-    const bytes = [...header(0x02, 0x80, BigInt(7777)), ...ref, ...block];
+    const bytes = [...header(0x02, 0x82, BigInt(7777)), ...ref, ...block];
     const frame = decodePmdFrame(toView(bytes));
     expect(frame?.type).toBe("acc");
     if (frame?.type !== "acc") throw new Error("type narrow");
@@ -106,7 +106,7 @@ describe("decodePmdFrame", () => {
     const ref = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
     const deltas: Array<[number, number, number]> = [[10, -10, 100]];
     const block = [0x08, 0x01, ...packDeltas(deltas, 8)];
-    const bytes = [...header(0x02, 0x80, BigInt(1)), ...ref, ...block];
+    const bytes = [...header(0x02, 0x82, BigInt(1)), ...ref, ...block];
     const frame = decodePmdFrame(toView(bytes));
     if (frame?.type !== "acc") throw new Error("type narrow");
     expect(frame.samples).toEqual([
@@ -118,7 +118,7 @@ describe("decodePmdFrame", () => {
   it("returns partial samples on truncated ACC full payload", () => {
     // One complete sample then a stray 4 bytes (less than 6 = no second).
     const payload = [0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0xff, 0xff, 0xff, 0xff];
-    const bytes = [...header(0x02, 0x00, BigInt(0)), ...payload];
+    const bytes = [...header(0x02, 0x01, BigInt(0)), ...payload];
     const frame = decodePmdFrame(toView(bytes));
     if (frame?.type !== "acc") throw new Error("type narrow");
     expect(frame.samples).toEqual([{ ax_mg: 1, ay_mg: 2, az_mg: 3 }]);
@@ -128,7 +128,7 @@ describe("decodePmdFrame", () => {
     const ref = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
     // bit_width=4, sample_count=10 but only 3 bytes of payload.
     const block = [0x04, 0x0a, 0xff, 0xff, 0xff];
-    const bytes = [...header(0x02, 0x80, BigInt(0)), ...ref, ...block];
+    const bytes = [...header(0x02, 0x82, BigInt(0)), ...ref, ...block];
     expect(() => decodePmdFrame(toView(bytes))).not.toThrow();
     const frame = decodePmdFrame(toView(bytes));
     if (frame?.type !== "acc") throw new Error("type narrow");
