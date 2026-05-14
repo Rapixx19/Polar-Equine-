@@ -1,11 +1,31 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import { LogoutButton } from "@/components/auth/LogoutButton";
-import { RiderRow } from "@/components/admin/RiderRow";
+import { KpiStrip } from "@/components/admin/KpiStrip";
+import { RosterTable } from "@/components/admin/RosterTable";
+import {
+  buildKpis,
+  buildRiderRollups,
+  sortRollupsByActivity,
+  type DashboardRiderProfile,
+  type DashboardSessionRow,
+} from "@/lib/admin/dashboard-rollup";
+import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
+
+type SessionWithMetricsRow = {
+  rider_id: string;
+  start_time: string;
+  end_time: string | null;
+  has_prototype_mount: boolean;
+  session_metrics: {
+    rr_cleaning_quality: number | null;
+    hrv_completeness_quality: number | null;
+    workload_quality: number | null;
+  } | null;
+};
 
 export default async function AdminPage() {
   const supabase = await createServerSupabaseClient();
@@ -14,32 +34,61 @@ export default async function AdminPage() {
 
   const { data: me } = await supabase
     .from("rider_profiles")
-    .select("is_admin, display_name")
+    .select("is_admin")
     .eq("id", user.id)
     .maybeSingle();
-
   if (!me?.is_admin) redirect("/home");
 
-  const { data: riders } = await supabase
-    .from("rider_profiles")
-    .select(
-      "id, display_name, is_admin, session_quota_target, program_end_date, total_sessions, created_at",
-    )
-    .order("created_at", { ascending: true });
+  const [profilesRes, sessionsRes] = await Promise.all([
+    supabase
+      .from("rider_profiles")
+      .select(
+        "id, display_name, is_admin, session_quota_target, program_end_date, admin_notes, next_focus, created_at",
+      )
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("sessions")
+      .select(
+        "rider_id, start_time, end_time, has_prototype_mount, session_metrics(rr_cleaning_quality, hrv_completeness_quality, workload_quality)",
+      ),
+  ]);
 
-  const list = riders ?? [];
+  const profiles = (profilesRes.data ?? []) as DashboardRiderProfile[];
+  const sessions = ((sessionsRes.data ?? []) as unknown as SessionWithMetricsRow[]).map(
+    (s): DashboardSessionRow => ({
+      rider_id: s.rider_id,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      has_prototype_mount: s.has_prototype_mount,
+      rr_cleaning_quality: s.session_metrics?.rr_cleaning_quality ?? null,
+      hrv_completeness_quality: s.session_metrics?.hrv_completeness_quality ?? null,
+      workload_quality: s.session_metrics?.workload_quality ?? null,
+    }),
+  );
+
+  const rollups = sortRollupsByActivity(buildRiderRollups(profiles, sessions));
+  const kpis = buildKpis(rollups, sessions);
 
   return (
     <main className="min-h-screen p-6">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-6xl">
         <header className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-wide text-[var(--text-faint)]">Admin</p>
-            <h1 className="text-2xl font-light">Riders</h1>
+            <h1 className="text-2xl font-light">Study dashboard</h1>
           </div>
           <div className="flex items-center gap-3 text-sm">
-            <Link href="/admin/sessions" className="text-[var(--text-muted)] hover:text-[var(--lime)]">
+            <Link
+              href="/admin/sessions"
+              className="text-[var(--text-muted)] hover:text-[var(--lime)]"
+            >
               Sessions
+            </Link>
+            <Link
+              href="/admin/prototype"
+              className="text-[var(--text-muted)] hover:text-[var(--lime)]"
+            >
+              Prototype
             </Link>
             <Link href="/home" className="text-[var(--text-muted)] hover:text-[var(--lime)]">
               Rider view
@@ -48,23 +97,9 @@ export default async function AdminPage() {
           </div>
         </header>
 
-        <p className="mb-4 text-sm text-[var(--text-muted)]">
-          Edit each rider&rsquo;s session quota and program end date. Changes save on Enter or blur.
-        </p>
+        <KpiStrip kpis={kpis} />
 
-        {list.length === 0 ? (
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--text-muted)]">
-            No rider profiles yet.
-          </div>
-        ) : (
-          <ul className="space-y-3">
-            {list.map((r) => (
-              <li key={r.id}>
-                <RiderRow rider={r} />
-              </li>
-            ))}
-          </ul>
-        )}
+        <RosterTable rollups={rollups} />
       </div>
     </main>
   );
