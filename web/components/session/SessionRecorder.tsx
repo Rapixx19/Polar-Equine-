@@ -33,6 +33,7 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
   const [sample, setSample] = useState<HRSample | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const unsubscribeRef = useRef<(() => Promise<void>) | null>(null);
+  const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
   // Mirror ingest.sessionId so the post-stop redirect still has a target
   // after stop() clears it. Never null this ref once set.
   const sessionIdRef = useRef<string | null>(null);
@@ -68,9 +69,14 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
     // is salvageable. (Slice 18 makes reconnect automatic.)
   }
 
-  function onConnected(device: BluetoothDevice, unsubscribe: () => Promise<void>) {
+  function onConnected(
+    device: BluetoothDevice,
+    server: BluetoothRemoteGATTServer,
+    unsubscribe: () => Promise<void>,
+  ) {
     setDeviceName(device.name ?? "Polar H10");
     unsubscribeRef.current = unsubscribe;
+    serverRef.current = server;
     setErrorMessage(undefined);
   }
 
@@ -147,6 +153,7 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
           void ingest.start(horse.id, activity, {
             ridingSubtype,
             activityNote,
+            bleServer: serverRef.current,
           })
         }
         onEnd={() => void handleEnd()}

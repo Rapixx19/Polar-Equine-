@@ -38,6 +38,9 @@ export default async function AdminPage() {
             <h1 className="text-2xl font-light">Riders</h1>
           </div>
           <div className="flex items-center gap-3 text-sm">
+            <Link href="/admin/sessions" className="text-[var(--text-muted)] hover:text-[var(--lime)]">
+              Sessions
+            </Link>
             <Link href="/home" className="text-[var(--text-muted)] hover:text-[var(--lime)]">
               Rider view
             </Link>

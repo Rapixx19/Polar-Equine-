@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { ConnectionStatus } from "@/components/ble/ConnectionStatus";
 import { PairButton } from "@/components/ble/PairButton";
+import { PmdInspector } from "@/components/ble/PmdInspector";
 import { RecordingControls } from "@/components/ble/RecordingControls";
 import { UnsupportedBanner } from "@/components/ble/UnsupportedBanner";
 import { ACTIVITY_TYPES, type ActivityType } from "@/lib/activities";
@@ -26,6 +27,7 @@ export function BleTestPanel({ horses }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [horseId, setHorseId] = useState<string>(horses[0]?.id ?? "");
   const [activityType, setActivityType] = useState<ActivityType>("riding");
+  const [server, setServer] = useState<BluetoothRemoteGATTServer | null>(null);
   // Held in a ref, not state: setState((fn) => ...) treats fn as a lazy initializer
   // and silently invokes it instead of storing the unsubscribe handle.
   const unsubscribeRef = useRef<(() => Promise<void>) | null>(null);
@@ -70,6 +72,7 @@ export function BleTestPanel({ horses }: Props) {
   function onDisconnect() {
     setState("disconnected");
     unsubscribeRef.current = null;
+    setServer(null);
     counters.current.drops++;
     // If a recording was running, drain and end it. We don't auto-reconnect
     // (Slice 18) — surfacing the dropout is intentional. ingest.stop is a
@@ -77,9 +80,14 @@ export function BleTestPanel({ horses }: Props) {
     void ingest.stop();
   }
 
-  function onConnected(device: BluetoothDevice, unsubscribe: () => Promise<void>) {
+  function onConnected(
+    device: BluetoothDevice,
+    gattServer: BluetoothRemoteGATTServer,
+    unsubscribe: () => Promise<void>,
+  ) {
     setDeviceName(device.name ?? "Polar H10");
     unsubscribeRef.current = unsubscribe;
+    setServer(gattServer);
     setErrorMessage(undefined);
   }
 
@@ -87,6 +95,7 @@ export function BleTestPanel({ horses }: Props) {
     await ingest.stop();
     const fn = unsubscribeRef.current;
     unsubscribeRef.current = null;
+    setServer(null);
     if (fn) await fn();
     setState("disconnected");
   }
@@ -134,6 +143,8 @@ export function BleTestPanel({ horses }: Props) {
         onStart={() => void ingest.start(horseId, activityType)}
         onStop={() => void ingest.stop()}
       />
+
+      {state === "connected" ? <PmdInspector server={server} /> : null}
     </div>
   );
 }

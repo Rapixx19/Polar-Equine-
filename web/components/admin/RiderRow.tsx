@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 
 type Rider = {
@@ -63,9 +64,17 @@ export function RiderRow({ rider }: { rider: Rider }) {
             </span>
           ) : null}
         </p>
-        <p className="text-xs text-[var(--text-faint)]">
-          {rider.total_sessions ?? 0} session{rider.total_sessions === 1 ? "" : "s"}
-        </p>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-[var(--text-faint)]">
+            {rider.total_sessions ?? 0} session{rider.total_sessions === 1 ? "" : "s"}
+          </span>
+          <Link
+            href={`/admin/riders/${rider.id}`}
+            className="text-[var(--text-muted)] hover:text-[var(--lime)]"
+          >
+            View sessions →
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
