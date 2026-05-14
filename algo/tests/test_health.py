@@ -6,4 +6,4 @@ def test_health_returns_ok(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["algo_version"] == "0.5.1"
+    assert body["algo_version"] == "0.6.0"
