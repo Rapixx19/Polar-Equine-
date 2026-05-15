@@ -51,8 +51,12 @@ TIMELINE: tuple[Block, ...] = (
 )
 
 
-def _synth_block(block: Block, t0_s: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    n = int(round(block.duration_s * SR_HZ))
+BlockArrays = tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+TruthBlock = tuple[float, float, str]
+
+
+def _synth_block(block: Block, t0_s: float) -> BlockArrays:
+    n = round(block.duration_s * SR_HZ)
     t_local = np.arange(n) / SR_HZ
     t_abs_ms = ((t0_s + t_local) * 1000).astype(np.int64)
     bounce = block.amplitude_g * np.sin(2 * np.pi * block.stride_hz * t_local)
@@ -60,15 +64,17 @@ def _synth_block(block: Block, t0_s: float) -> tuple[np.ndarray, np.ndarray, np.
     ax = RNG.normal(0.0, 0.03, n)
     ay = RNG.normal(0.0, 0.03, n)
     if block.jump_every_s is not None:
-        spacing_n = int(round(block.jump_every_s * SR_HZ))
-        pulse_n = int(round(0.5 * SR_HZ))
+        spacing_n = round(block.jump_every_s * SR_HZ)
+        pulse_n = round(0.5 * SR_HZ)
         for start in range(spacing_n, n - pulse_n, spacing_n):
             # Half-second elevated bounce on top of the canter signal.
             az[start : start + pulse_n] += 1.5
     return t_abs_ms, ax.astype(np.float64), ay.astype(np.float64), az.astype(np.float64)
 
 
-def _build_timeline() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[tuple[float, float, str]]]:
+def _build_timeline() -> tuple[
+    np.ndarray, np.ndarray, np.ndarray, np.ndarray, list[TruthBlock]
+]:
     chunks = []
     truth: list[tuple[float, float, str]] = []
     t0 = 0.0
@@ -83,7 +89,9 @@ def _build_timeline() -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, l
     return ts, ax, ay, az, truth
 
 
-def _confusion(detected: list[tuple[int, int, str]], truth: list[tuple[float, float, str]]) -> dict[str, dict[str, float]]:
+def _confusion(
+    detected: list[tuple[int, int, str]], truth: list[TruthBlock]
+) -> dict[str, dict[str, float]]:
     # Time-per-(truth_label, detected_label) in seconds. Iterate over the truth
     # blocks; for each, find detected segments that overlap and accumulate.
     matrix: dict[str, dict[str, float]] = {}
@@ -118,7 +126,11 @@ def main() -> None:
     # absolute synth-clock here because we started at 0.
     detected_segments = [(s.start_ms, s.end_ms, s.label) for s in gait.segments]
     print(f"\nGait segments emitted: {len(gait.segments)}; n_windows={gait.n_windows}")
-    print(f"Jump events: {len(jumps.events)}  (expected ~{sum(1 for b in TIMELINE if b.jump_every_s) * (20 * 60 // 30):.0f} in the jumping block)")
+    expected_jumps = sum(1 for b in TIMELINE if b.jump_every_s) * (20 * 60 // 30)
+    print(
+        f"Jump events: {len(jumps.events)}  "
+        f"(expected ~{expected_jumps:.0f} in the jumping block)"
+    )
 
     matrix = _confusion(detected_segments, truth)
     print("\nTime-overlap matrix (seconds):")
