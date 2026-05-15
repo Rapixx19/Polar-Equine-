@@ -8,6 +8,7 @@ import type { GaitLabel } from "@/lib/session/segments";
 import { DataSourcesPanel, type SourceCounts } from "./DataSourcesPanel";
 import { ExportsPanel } from "./ExportsPanel";
 import { InsightPanel } from "./InsightPanel";
+import { LiveStatusBar } from "./LiveStatusBar";
 
 export type { SourceCounts };
 
@@ -77,6 +78,7 @@ export function SessionDetailClient({
   initialInsight,
   sourceCounts,
   signalEvents,
+  initialStatus,
 }: {
   sessionId: string;
   samples: Sample[];
@@ -86,6 +88,7 @@ export function SessionDetailClient({
   initialInsight: InitialInsight | null;
   sourceCounts: SourceCounts;
   signalEvents: SignalEvent[];
+  initialStatus: string;
 }) {
   const chartSamples = useMemo(() => downsample(samples), [samples]);
   const segments = useMemo(
@@ -95,6 +98,7 @@ export function SessionDetailClient({
 
   return (
     <div className="space-y-6">
+      <LiveStatusBar sessionId={sessionId} initialStatus={initialStatus} />
       <section>
         <h2 className="mb-2 text-sm font-medium text-[var(--text-muted)]">Heart rate</h2>
         <HRChart

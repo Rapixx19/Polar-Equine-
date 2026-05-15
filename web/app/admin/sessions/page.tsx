@@ -6,6 +6,8 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 import { activityLabel } from "@/components/session/ActivityTile";
 import type { ActivityType } from "@/lib/activities";
 
+import { LiveSessionsBanner } from "./LiveSessionsBanner";
+
 export const dynamic = "force-dynamic";
 
 type SessionRow = {
@@ -71,6 +73,8 @@ export default async function AdminSessionsPage() {
             <LogoutButton />
           </div>
         </header>
+
+        <LiveSessionsBanner />
 
         {sessions.length === 0 ? (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-center text-sm text-[var(--text-muted)]">
