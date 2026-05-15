@@ -8,6 +8,7 @@ import { ConnectionStatus } from "@/components/ble/ConnectionStatus";
 import { PairButton } from "@/components/ble/PairButton";
 import { UnsupportedBanner } from "@/components/ble/UnsupportedBanner";
 import { PreSessionGuard } from "@/components/recording/PreSessionGuard";
+import { LiveLabelChips } from "@/components/session/LiveLabelChips";
 import { LiveVitals } from "@/components/session/LiveVitals";
 import { PrototypeMountToggle } from "@/components/session/PrototypeMountToggle";
 import { RecorderButtons } from "@/components/session/RecorderButtons";
@@ -232,6 +233,10 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
           <CaptureQualityBadge
             state={captureQuality.state}
             goodPct={captureQuality.summary.goodPct}
+          />
+          <LiveLabelChips
+            sessionId={ingest.sessionId}
+            startedAt={ingest.startedAt}
           />
         </>
       )}
