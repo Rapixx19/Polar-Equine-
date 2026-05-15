@@ -209,6 +209,7 @@ export default async function AdminSessionDetailPage({
           initialInsight={initialInsight}
           sourceCounts={sourceCounts}
           signalEvents={signalEvents}
+          initialStatus={session.status}
         />
       </div>
     </main>
