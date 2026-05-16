@@ -33,24 +33,28 @@ def get_supabase_client() -> Client:
 
 
 def read_session(session_id: str) -> SessionRow:
-    res = (
-        get_supabase_client()
-        .table("sessions")
-        .select("id,activity_type,start_time,end_time,metrics_status")
-        .eq("id", session_id)
-        .limit(1)
-        .execute()
+    cols = (
+        "id,activity_type,start_time,end_time,metrics_status,"
+        "horse:horses(hr_max_bpm,hr_rest_bpm)"
     )
+    client = get_supabase_client()
+    res = client.table("sessions").select(cols).eq("id", session_id).limit(1).execute()
     raw_rows = res.data or []
     if not raw_rows:
         raise ValueError("session_not_found")
     row: dict[str, Any] = dict(cast("dict[str, Any]", raw_rows[0]))
+    h = row.get("horse")
+    if isinstance(h, list):
+        h = h[0] if h else None
+    horse = cast("dict[str, Any]", h) if isinstance(h, dict) else {}
     return SessionRow(
         id=str(row["id"]),
         activity_type=str(row["activity_type"]),
         start_time=_parse_ts(row["start_time"]),
         end_time=_parse_ts(row["end_time"]) if row["end_time"] else None,
         metrics_status=row["metrics_status"],
+        hr_max_bpm=int(horse["hr_max_bpm"]) if horse.get("hr_max_bpm") is not None else None,
+        hr_rest_bpm=int(horse["hr_rest_bpm"]) if horse.get("hr_rest_bpm") is not None else None,
     )
 
 
@@ -123,13 +127,8 @@ def write_session_metrics(row: SessionMetricsRow) -> None:
 
 
 def set_metrics_status(session_id: str, status: MetricsStatus) -> None:
-    (
-        get_supabase_client()
-        .table("sessions")
-        .update({"metrics_status": status})
-        .eq("id", session_id)
-        .execute()
-    )
+    q = get_supabase_client().table("sessions").update({"metrics_status": status})
+    q.eq("id", session_id).execute()
 
 
 def delete_session_metrics(session_id: str) -> None:

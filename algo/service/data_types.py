@@ -32,6 +32,12 @@ class SessionRow:
     start_time: datetime
     end_time: datetime | None
     metrics_status: MetricsStatus
+    # Per-horse zone calibration overrides (migration 038). NULL falls back to
+    # the species defaults baked into trimp_zones.WorkloadConfig. The horse
+    # row carries these; we lift them into SessionRow so the pipeline doesn't
+    # need a second round-trip to Supabase.
+    hr_max_bpm: int | None = None
+    hr_rest_bpm: int | None = None
 
 
 @dataclass(frozen=True)

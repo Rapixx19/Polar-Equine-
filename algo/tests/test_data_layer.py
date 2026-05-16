@@ -119,6 +119,46 @@ def test_read_session_returns_dataclass(monkeypatch: pytest.MonkeyPatch) -> None
     assert row.metrics_status == "pending"
 
 
+def test_read_session_lifts_horse_calibration(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Migration 038: PostgREST embeds horse calibration as a nested object. We
+    # surface it onto SessionRow so the pipeline doesn't double round-trip.
+    table = _MockTable()
+    table._select_rows = [
+        {
+            "id": "sid",
+            "activity_type": "riding",
+            "start_time": "2026-05-04T10:00:00+00:00",
+            "end_time": "2026-05-04T10:05:00+00:00",
+            "metrics_status": "pending",
+            "horse": {"hr_max_bpm": 150, "hr_rest_bpm": 38},
+        }
+    ]
+    _patch_client(monkeypatch, table)
+    row = data.read_session("sid")
+    assert row.hr_max_bpm == 150
+    assert row.hr_rest_bpm == 38
+
+
+def test_read_session_uncalibrated_horse(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Half-calibrated and missing-horse cases must surface NULL, not crash —
+    # the pipeline's _workload_config falls back to species defaults per field.
+    table = _MockTable()
+    table._select_rows = [
+        {
+            "id": "sid",
+            "activity_type": "riding",
+            "start_time": "2026-05-04T10:00:00+00:00",
+            "end_time": None,
+            "metrics_status": "pending",
+            "horse": None,
+        }
+    ]
+    _patch_client(monkeypatch, table)
+    row = data.read_session("sid")
+    assert row.hr_max_bpm is None
+    assert row.hr_rest_bpm is None
+
+
 def test_read_session_raises_on_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     table = _MockTable()
     table._select_rows = []

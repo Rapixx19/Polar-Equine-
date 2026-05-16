@@ -255,6 +255,72 @@ def test_compute_rejects_extra_fields(client: TestClient, patched: dict[str, Any
     assert res.status_code == 422
 
 
+def test_workload_config_helper_per_horse_calibration() -> None:
+    """Migration 038: per-horse HR_max/HR_rest override the species defaults
+    and a half-calibrated horse keeps the default for the unset field."""
+    from algorithms.trimp_zones import WorkloadConfig
+    from service.routes._pipeline import _workload_config
+
+    base = _session()
+    defaults = WorkloadConfig()
+
+    uncalibrated = SessionRow(**{**base.__dict__})
+    assert _workload_config(uncalibrated) is None
+
+    full = SessionRow(**{**base.__dict__, "hr_max_bpm": 150, "hr_rest_bpm": 38})
+    cfg_full = _workload_config(full)
+    assert cfg_full is not None
+    assert cfg_full.hr_max_bpm == 150.0
+    assert cfg_full.hr_rest_bpm == 38.0
+
+    half = SessionRow(**{**base.__dict__, "hr_max_bpm": 150})
+    cfg_half = _workload_config(half)
+    assert cfg_half is not None
+    assert cfg_half.hr_max_bpm == 150.0
+    assert cfg_half.hr_rest_bpm == defaults.hr_rest_bpm
+
+
+def test_compute_calibrated_horse_lands_in_zones(
+    client: TestClient, patched: dict[str, Any]
+) -> None:
+    """End-to-end: a horse with hr_max_bpm=150 working at HR=120 should put
+    time into Z4 (80%+), where the species default (225) would keep every
+    sample below the Z1 floor. Reproduces Emma's 2026-05-15 ride shape."""
+    sess = _session(dur_s=300)
+    calibrated = SessionRow(
+        id=sess.id,
+        activity_type=sess.activity_type,
+        start_time=sess.start_time,
+        end_time=sess.end_time,
+        metrics_status=sess.metrics_status,
+        hr_max_bpm=150,
+        hr_rest_bpm=38,
+    )
+    patched["session"] = calibrated
+    rng = np.random.default_rng(0)
+    n = 60
+    rr = (1900 + rng.normal(0.0, 30.0, size=n)).astype(float)
+    hr = np.full(n, 120.0)
+    ts = (np.arange(n) * 1900).astype(np.int64)
+    patched["samples"] = SamplesHR(rr_ms=rr, hr_bpm=hr, timestamp_ms=ts)
+
+    res = client.post("/compute", json={"session_id": calibrated.id}, headers=_auth())
+    assert res.status_code == 200, res.text
+    written = patched["writes"][0]
+    total_zone_s = sum(
+        z
+        for z in (
+            written.time_z1_s,
+            written.time_z2_s,
+            written.time_z3_s,
+            written.time_z4_s,
+            written.time_z5_s,
+        )
+        if z is not None
+    )
+    assert total_zone_s > 0, "calibrated config must put work into some zone"
+
+
 def test_compute_plausibility_gate_nulls_hrv_and_downgrades_status(
     client: TestClient,
     patched: dict[str, Any],
