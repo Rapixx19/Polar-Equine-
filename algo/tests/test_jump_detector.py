@@ -12,10 +12,30 @@ import numpy as np
 import pytest
 
 from algorithms.jump_detector import (
+    CLUSTER_GAP_SEC,
     MAX_DURATION_SEC,
+    MIN_PEAK_G,
     detect,
 )
 from algorithms.version import algo_version
+
+
+def _takeoff_landing(
+    az: np.ndarray,
+    *,
+    sr_hz: float = 52.0,
+    t0_s: float = 15.0,
+    impulse_g: float = 1.5,
+) -> None:
+    """In-place stamp a real-jump pattern on az: 200 ms takeoff bump, 300 ms
+    suspension valley (no boost), 200 ms landing bump. Total run is ~700 ms
+    after the detector's merge_gap merges the two impulses."""
+    a = int(t0_s * sr_hz)
+    b = a + int(0.2 * sr_hz)
+    c = b + int(0.3 * sr_hz)
+    d = c + int(0.2 * sr_hz)
+    az[a:b] += impulse_g
+    az[c:d] += impulse_g
 
 
 def _baseline(
@@ -46,21 +66,47 @@ def test_quiet_baseline_yields_no_events() -> None:
     assert result.events == ()
 
 
-def test_single_impulse_is_detected() -> None:
+def test_takeoff_landing_pair_is_detected() -> None:
+    """Real jump signature: takeoff impulse → suspension valley → landing impulse.
+    The merge gap fuses the two bumps; the suspension gate sees the quiet middle."""
     t, ax, ay, az = _baseline(duration_s=30)
-    sr_hz = 52.0
-    # 500 ms impulse starting at t = 15 s. Vertical axis jumps to ~+1.5 g
-    # above baseline, well clear of the 4-sigma threshold.
-    impulse_start = int(15 * sr_hz)
-    impulse_end = impulse_start + int(0.5 * sr_hz)
-    az[impulse_start:impulse_end] += 1.5
+    _takeoff_landing(az, t0_s=15.0)
     result = detect(t, ax, ay, az)
     assert len(result.events) == 1
     event = result.events[0]
     assert event.start_ms >= int(14.5 * 1000)
-    assert event.end_ms <= int(16.0 * 1000)
-    assert event.peak_g > 0.5
+    assert event.end_ms <= int(16.5 * 1000)
+    assert event.peak_g >= MIN_PEAK_G
     assert 0.0 <= event.confidence <= 1.0
+
+
+def test_single_sustained_impulse_rejected_by_suspension_gate() -> None:
+    """A solid 500 ms +1.5 g impulse with NO suspension valley is no longer a
+    jump. Real take-off/landing physics demands a free-fall middle."""
+    t, ax, ay, az = _baseline(duration_s=30)
+    sr_hz = 52.0
+    a = int(15 * sr_hz)
+    b = a + int(0.5 * sr_hz)
+    az[a:b] += 1.5  # impulse without a suspension valley
+    result = detect(t, ax, ay, az)
+    assert result.events == ()
+
+
+def test_low_magnitude_burst_rejected_by_peak_g_floor() -> None:
+    """Tall-z but low-magnitude bumps (sub-1.5 g) are rejected — z alone can fire
+    on tiny excursions during very quiet baselines."""
+    t, ax, ay, az = _baseline(duration_s=30, seed=3)
+    sr_hz = 52.0
+    a = int(15 * sr_hz)
+    b = a + int(0.2 * sr_hz)
+    c = b + int(0.3 * sr_hz)
+    d = c + int(0.2 * sr_hz)
+    # 0.8 g bumps: easily clear 4 stddev on the 0.02 g noise baseline but
+    # below MIN_PEAK_G = 1.5.
+    az[a:b] += 0.8
+    az[c:d] += 0.8
+    result = detect(t, ax, ay, az)
+    assert result.events == ()
 
 
 def test_single_sample_spike_filtered_as_emi() -> None:
@@ -69,6 +115,25 @@ def test_single_sample_spike_filtered_as_emi() -> None:
     az[10 * 52] += 5.0
     result = detect(t, ax, ay, az)
     assert result.events == ()
+
+
+def test_repeated_takeoff_landing_clustered_to_one_per_3s() -> None:
+    """Two real jumps 1.5 s apart cluster down to one detection — typical of a
+    classifier double-firing on take-off + landing within a single jump."""
+    t, ax, ay, az = _baseline(duration_s=30)
+    _takeoff_landing(az, t0_s=15.0)
+    _takeoff_landing(az, t0_s=16.5)  # 1.5 s after first → within CLUSTER_GAP_SEC
+    result = detect(t, ax, ay, az)
+    assert len(result.events) == 1
+
+
+def test_two_genuine_jumps_outside_cluster_window_both_kept() -> None:
+    """Jumps spaced wider than CLUSTER_GAP_SEC stay as separate detections."""
+    t, ax, ay, az = _baseline(duration_s=40)
+    _takeoff_landing(az, t0_s=10.0)
+    _takeoff_landing(az, t0_s=10.0 + CLUSTER_GAP_SEC + 2.0)
+    result = detect(t, ax, ay, az)
+    assert len(result.events) == 2
 
 
 def test_sustained_high_rms_canter_not_reported_as_jump() -> None:
@@ -88,15 +153,10 @@ def test_sustained_high_rms_canter_not_reported_as_jump() -> None:
 
 
 def test_two_close_impulses_merge_into_one() -> None:
-    # Take-off and landing pair: two 200 ms bumps 300 ms apart should fuse.
+    # Take-off and landing pair: two 200 ms bumps 300 ms apart should fuse,
+    # and the 300 ms quiet middle should pass the suspension gate.
     t, ax, ay, az = _baseline(duration_s=30)
-    sr_hz = 52.0
-    a_start = int(15 * sr_hz)
-    a_end = a_start + int(0.2 * sr_hz)
-    b_start = a_end + int(0.3 * sr_hz)
-    b_end = b_start + int(0.2 * sr_hz)
-    az[a_start:a_end] += 1.5
-    az[b_start:b_end] += 1.5
+    _takeoff_landing(az, t0_s=15.0)
     result = detect(t, ax, ay, az)
     assert len(result.events) == 1
 

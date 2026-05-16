@@ -94,14 +94,14 @@ def write_session_metrics(row: SessionMetricsRow) -> None:
         "hr_peak": row.hr_peak,
         "hr_min": row.hr_min,
         "hr_sd": row.hr_sd,
-        "rmssd_ms": row.rmssd_ms,
+        "rmssd_ms": row.rmssd_ms,  # nullable since migration 036 (plausibility gate)
         "sdnn_ms": row.sdnn_ms,
         "pnn50_pct": row.pnn50_pct,
         "pnn20_pct": row.pnn20_pct,
         "rr_cleaning_quality": row.rr_cleaning_quality,
         "hrv_completeness_quality": row.hrv_completeness_quality,
+        "quality_flags": row.quality_flags,
         "algo_version": row.algo_version,
-        # Slice 11 / 11.5 columns — present from algo_version 0.5.0 (migration 016).
         "trimp_banister": row.trimp_banister,
         "time_z1_s": row.time_z1_s,
         "time_z2_s": row.time_z2_s,

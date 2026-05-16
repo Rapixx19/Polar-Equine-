@@ -6,7 +6,11 @@ import { HRBatcher } from "@/lib/ble/batcher";
 import { ACCBatcher } from "@/lib/ble/acc-batcher";
 import { ECGBatcher } from "@/lib/ble/ecg-batcher";
 import type { HRSample } from "@/lib/ble/hr-codec";
-import { startPmdStreams, type PmdLifecycleEvent } from "@/lib/ble/pmd-service";
+import {
+  startPmdStreams,
+  type PmdHandlers,
+  type PmdLifecycleEvent,
+} from "@/lib/ble/pmd-service";
 import type { ActivityType, RidingSubtype } from "@/lib/activities";
 import { classifyStartError, startErrorMessage } from "@/lib/ble/start-error";
 
@@ -51,6 +55,30 @@ export function useIngestSession() {
   const ecgBatcherRef = useRef<ECGBatcher | null>(null);
   const pmdUnsubRef = useRef<(() => Promise<void>) | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+
+  const buildPmdHandlers = useCallback(
+    (acc: ACCBatcher, ecg: ECGBatcher): PmdHandlers => ({
+      onAccBatch: (b) => {
+        acc.add(b);
+        if (b.length > 0) {
+          const lastAt = Date.now();
+          setStreams((s) => ({ ...s, acc: { count: s.acc.count + b.length, lastAt } }));
+        }
+      },
+      onEcgBatch: (b) => {
+        ecg.add(b);
+        if (b.length > 0) {
+          const lastAt = Date.now();
+          setStreams((s) => ({ ...s, ecg: { count: s.ecg.count + b.length, lastAt } }));
+        }
+      },
+      onDecodeError: (info) => console.warn("[pmd] decode_error", info),
+      onPmdEvent: (event) => {
+        setPmdEvents((prev) => [...prev, { ...event, at: Date.now() }].slice(-20));
+      },
+    }),
+    [],
+  );
 
   const start = useCallback(
     async (horseId: string, activityType: ActivityType, options: StartOptions = {}) => {
@@ -117,28 +145,10 @@ export function useIngestSession() {
       accBatcherRef.current = acc;
       ecgBatcherRef.current = ecg;
       try {
-        pmdUnsubRef.current = await startPmdStreams(options.bleServer, {
-          onAccBatch: (b) => {
-            acc.add(b);
-            if (b.length > 0) {
-              const lastAt = Date.now();
-              setStreams((s) => ({ ...s, acc: { count: s.acc.count + b.length, lastAt } }));
-            }
-          },
-          onEcgBatch: (b) => {
-            ecg.add(b);
-            if (b.length > 0) {
-              const lastAt = Date.now();
-              setStreams((s) => ({ ...s, ecg: { count: s.ecg.count + b.length, lastAt } }));
-            }
-          },
-          onDecodeError: (info) => console.warn("[pmd] decode_error", info),
-          onPmdEvent: (event) => {
-            setPmdEvents((prev) =>
-              [...prev, { ...event, at: Date.now() }].slice(-20),
-            );
-          },
-        });
+        pmdUnsubRef.current = await startPmdStreams(
+          options.bleServer,
+          buildPmdHandlers(acc, ecg),
+        );
       } catch (err) {
         // PMD start failure must not abort the HR session — HR remains the
         // critical stream. Log loudly so we notice on horse-test day.
@@ -149,7 +159,29 @@ export function useIngestSession() {
     setStartedAt(Date.now());
     setState("recording");
     },
-    [],
+    [buildPmdHandlers],
+  );
+
+  // Re-bind PMD streams to a fresh GATT server after an auto-reconnect.
+  // Preserves batchers + session ID so the timeline stays continuous; the
+  // new pmd-service instance re-anchors its clock to wall-clock on the
+  // first frame, so the relative timestamps stitch cleanly across the gap.
+  const reattach = useCallback(
+    async (server: BluetoothRemoteGATTServer) => {
+      const acc = accBatcherRef.current;
+      const ecg = ecgBatcherRef.current;
+      if (!sessionIdRef.current || !acc || !ecg) return;
+      const prev = pmdUnsubRef.current;
+      pmdUnsubRef.current = null;
+      if (prev) await prev().catch((e) => console.warn("[pmd] reattach_teardown_failed", e));
+      try {
+        pmdUnsubRef.current = await startPmdStreams(server, buildPmdHandlers(acc, ecg));
+      } catch (err) {
+        console.error("[pmd] reattach_failed", err);
+        setError("ACC/ECG streams didn't restart after reconnect; HR continues.");
+      }
+    },
+    [buildPmdHandlers],
   );
 
   const stop = useCallback(async () => {
@@ -198,6 +230,7 @@ export function useIngestSession() {
     pmdEvents,
     start,
     stop,
+    reattach,
     onSample,
   };
 }

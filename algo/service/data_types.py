@@ -5,14 +5,16 @@ Kept separate from ``data.py`` to honour Rule 1 (≤150 lines per file).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
-MetricsStatus = Literal["pending", "computing", "complete", "failed"]
+MetricsStatus = Literal[
+    "pending", "computing", "complete", "complete_low_quality", "failed"
+]
 
 # Slice 11.5: rest sessions skip recovery τ. Values must match the
 # ``sessions.activity_type`` CHECK constraint in migration 002. ``walker`` is
@@ -66,13 +68,19 @@ class SessionMetricsRow:
     hr_peak: int
     hr_min: int
     hr_sd: float
-    rmssd_ms: float
-    sdnn_ms: float
-    pnn50_pct: float
-    pnn20_pct: float
+    # HRV outputs are nullable from migration 036: the plausibility gate
+    # (rr_cleaning_quality < 0.5 or rmssd_ms > 300) nulls these and sets
+    # metrics_status='complete_low_quality' rather than persist nonsense.
+    rmssd_ms: float | None
+    sdnn_ms: float | None
+    pnn50_pct: float | None
+    pnn20_pct: float | None
     rr_cleaning_quality: float
-    hrv_completeness_quality: float
+    hrv_completeness_quality: float | None
     algo_version: str
+    # Structured reasons HRV was nulled, e.g. {"rr_cleaning_low": True,
+    # "rmssd_implausible": True}. Empty for clean rows.
+    quality_flags: dict[str, bool] = field(default_factory=dict)
     # Slice 11 — workload (TRIMP + 5-zone times). Nullable for sessions that
     # predate migration 016 or where the algorithm declines to compute.
     trimp_banister: float | None = None

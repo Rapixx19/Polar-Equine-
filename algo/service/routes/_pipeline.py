@@ -3,10 +3,8 @@ exception flips ``metrics_status='failed'`` before re-raising — Rule 9."""
 
 from __future__ import annotations
 
-import numpy as np
 import structlog
 from fastapi import HTTPException
-from numpy.typing import NDArray
 
 from algorithms import hrv_metrics, recovery_tau, rr_cleaning, trimp_zones
 from algorithms.version import algo_version
@@ -16,9 +14,11 @@ from service.data import (
     set_metrics_status,
     write_session_metrics,
 )
-from service.data_types import REST_ACTIVITIES, SamplesHR, SessionMetricsRow, SessionRow
+from service.data_types import REST_ACTIVITIES, MetricsStatus, SamplesHR, SessionRow
 from service.models import ComputeResponse
 from service.routes._gait import label_session_from_acc
+from service.routes._quality_gate import evaluate_hrv_quality
+from service.routes._row_compose import compose_metrics_row
 
 log = structlog.get_logger()
 
@@ -54,7 +54,22 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
 
         recovery_tau_s, recovery_fit_quality = _compute_recovery(session, samples)
 
-        row = _compose_metrics_row(
+        verdict = evaluate_hrv_quality(
+            rr_cleaning_quality=cleaned.quality,
+            rmssd_ms=metrics.rmssd_ms,
+            sdnn_ms=metrics.sdnn_ms,
+        )
+        if verdict.hrv_unreliable:
+            log.warning(
+                "hrv.plausibility_gate_tripped",
+                session_id=session.id,
+                flags=verdict.flags,
+                rr_cleaning_quality=cleaned.quality,
+                rmssd_ms=metrics.rmssd_ms,
+                sdnn_ms=metrics.sdnn_ms,
+            )
+
+        row = compose_metrics_row(
             session=session,
             cleaned=cleaned,
             metrics=metrics,
@@ -63,6 +78,8 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             recovery_tau_s=recovery_tau_s,
             recovery_fit_quality=recovery_fit_quality,
             duration_s=_duration_s(session),
+            quality_flags=verdict.flags,
+            null_hrv=verdict.hrv_unreliable,
         )
         try:
             write_session_metrics(row)
@@ -71,7 +88,10 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
         label_count = _label_gait_safely(session.id)
-        set_metrics_status(session.id, "complete")
+        final_status: MetricsStatus = (
+            "complete_low_quality" if verdict.hrv_unreliable else "complete"
+        )
+        set_metrics_status(session.id, final_status)
     except HTTPException:
         raise
     except Exception:
@@ -105,43 +125,6 @@ def _compute_recovery(session: SessionRow, samples: SamplesHR) -> tuple[float | 
     if result.reason != "ok":
         log.warning("recovery.fit_failed", session_id=session.id, reason=result.reason)
     return result.tau_s, result.fit_quality
-
-
-def _compose_metrics_row(
-    session: SessionRow,
-    cleaned: rr_cleaning.CleaningResult,
-    metrics: hrv_metrics.HRVResult,
-    hr_kept: NDArray[np.float64],
-    workload: trimp_zones.WorkloadResult,
-    recovery_tau_s: float | None,
-    recovery_fit_quality: float | None,
-    duration_s: int,
-) -> SessionMetricsRow:
-    return SessionMetricsRow(
-        session_id=session.id,
-        duration_s=duration_s,
-        hr_avg=float(np.mean(hr_kept)),
-        hr_peak=int(np.max(hr_kept)),
-        hr_min=int(np.min(hr_kept)),
-        hr_sd=float(np.std(hr_kept, ddof=1)) if hr_kept.size > 1 else 0.0,
-        rmssd_ms=metrics.rmssd_ms,
-        sdnn_ms=metrics.sdnn_ms,
-        pnn50_pct=metrics.pnn50_pct,
-        pnn20_pct=metrics.pnn20_pct,
-        rr_cleaning_quality=cleaned.quality,
-        hrv_completeness_quality=metrics.quality,
-        algo_version=algo_version,
-        trimp_banister=workload.trimp_banister,
-        time_z1_s=workload.time_z1_s,
-        time_z2_s=workload.time_z2_s,
-        time_z3_s=workload.time_z3_s,
-        time_z4_s=workload.time_z4_s,
-        time_z5_s=workload.time_z5_s,
-        avg_hr_pct=workload.avg_hr_pct,
-        workload_quality=workload.quality,
-        recovery_tau_s=recovery_tau_s,
-        recovery_fit_quality=recovery_fit_quality,
-    )
 
 
 def _duration_s(session: SessionRow) -> int:

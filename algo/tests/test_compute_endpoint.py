@@ -253,3 +253,48 @@ def test_compute_rejects_extra_fields(client: TestClient, patched: dict[str, Any
         headers=_auth(),
     )
     assert res.status_code == 422
+
+
+def test_compute_plausibility_gate_nulls_hrv_and_downgrades_status(
+    client: TestClient,
+    patched: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Migration 036: when HRV is implausible, persist row with HRV nulled,
+    quality_flags populated, and status='complete_low_quality' instead of
+    'complete'. Reproduces Emma's 2026-05-15 RMSSD=747 ride shape."""
+    from algorithms.hrv_metrics import HRVResult
+
+    def _bad_hrv(rr_clean_ms: Any) -> HRVResult:
+        return HRVResult(
+            rmssd_ms=747.0,
+            sdnn_ms=613.0,
+            pnn50_pct=83.0,
+            pnn20_pct=90.0,
+            mean_rr_ms=1900.0,
+            n_beats=60,
+            quality=1.0,
+        )
+
+    monkeypatch.setattr("service.routes._pipeline.hrv_metrics.compute", _bad_hrv)
+
+    sess = _session(dur_s=300)
+    patched["session"] = sess
+    res = client.post("/compute", json={"session_id": sess.id}, headers=_auth())
+    assert res.status_code == 200, res.text
+
+    written = patched["writes"][0]
+    assert written.rmssd_ms is None
+    assert written.sdnn_ms is None
+    assert written.pnn50_pct is None
+    assert written.pnn20_pct is None
+    assert written.hrv_completeness_quality is None
+    assert written.quality_flags.get("rmssd_implausible") is True
+    assert written.quality_flags.get("sdnn_implausible") is True
+    # HR stats are still trustworthy — keep them populated.
+    assert written.hr_avg > 0
+    assert written.hr_peak > 0
+    # Status transitions: computing → complete_low_quality (NOT complete).
+    statuses = [s for _, s in patched["status_calls"]]
+    assert statuses[0] == "computing"
+    assert statuses[-1] == "complete_low_quality"
