@@ -1,7 +1,5 @@
-"""Rule-based jump detector from H10 girth-strap ACC. V1: z-score the
-gravity-removed magnitude over a rolling baseline; runs of high-z samples that
-satisfy a duration band are emitted as events. V2 (deferred): take-off/landing
-pair signature + gait-classifier cross-check. Public entry: ``detect``."""
+"""Rule-based jump detector from H10 ACC. Public entry: ``detect``. Pipeline:
+z-score → duration band → peak-G floor → suspension valley → 3 s clustering."""
 
 from __future__ import annotations
 
@@ -12,16 +10,18 @@ from numpy.typing import NDArray
 
 from algorithms.version import algo_version
 
-# 8 s baseline keeps a few strides of context for the robust z-score; 4-sigma
-# rejects ordinary trot/canter bounce while catching cavaletti hops. The
-# duration band filters single-sample EMI spikes (too short) and sustained
-# high-RMS canter stretches (too long). The merge gap stitches take-off +
-# landing into one event. Tune from labelled rides in v2.
+# 8 s rolling baseline; 4σ catches impulses; duration band rejects EMI/sustained.
 BASELINE_SEC: float = 8.0
 Z_THRESHOLD: float = 4.0
 MIN_DURATION_SEC: float = 0.15
 MAX_DURATION_SEC: float = 2.0
 MERGE_GAP_SEC: float = 0.6
+# Physics gates (2026-05-15 — Emma's no-jump ride emitted 26 false positives on
+# trot/walk noise). Magnitude floor + free-fall valley + 1-jump-per-3 s cap.
+MIN_PEAK_G: float = 1.5
+SUSPENSION_THRESHOLD_G: float = 0.2
+MIN_SUSPENSION_SEC: float = 0.08
+CLUSTER_GAP_SEC: float = 3.0
 
 
 @dataclass(frozen=True)
@@ -45,8 +45,7 @@ def detect(
     ay: NDArray[np.float64],
     az: NDArray[np.float64],
 ) -> JumpDetectionResult:
-    """Detect jump impulses. Empty result on insufficient input — the pipeline
-    must remain runnable on legacy sessions without ACC."""
+    """Detect jump impulses. Empty result on insufficient input — pipeline must run on legacy sessions without ACC."""
     if timestamp_ms.size == 0 or ax.size == 0:
         return JumpDetectionResult(events=(), sample_rate_hz=52.0)
     if not (ax.size == ay.size == az.size == timestamp_ms.size):
@@ -67,22 +66,35 @@ def detect(
     if not np.any(above):
         return JumpDetectionResult(events=(), sample_rate_hz=sr_hz)
 
-    runs = _runs_of_true(above)
-    merge_gap_n = max(1, round(MERGE_GAP_SEC * sr_hz))
-    merged = _merge_close_runs(runs, merge_gap_n)
-
+    merged = _merge_close_runs(_runs_of_true(above), max(1, round(MERGE_GAP_SEC * sr_hz)))
     min_n = max(1, round(MIN_DURATION_SEC * sr_hz))
     max_n = max(min_n + 1, round(MAX_DURATION_SEC * sr_hz))
-    events: list[JumpEvent] = []
+    susp_n = max(1, round(MIN_SUSPENSION_SEC * sr_hz))
+    raw: list[JumpEvent] = []
     for start, end in merged:
         if not (min_n <= end - start <= max_n):
             continue
         peak_idx = start + int(np.argmax(np.abs(mag[start:end])))
+        peak_g = float(mag[peak_idx])
+        if peak_g < MIN_PEAK_G:
+            continue
+        quiet = np.abs(mag[start:end]) < SUSPENSION_THRESHOLD_G
+        if not np.any(quiet) or not any(
+            (b - a) >= susp_n for a, b in _runs_of_true(quiet)
+        ):
+            continue
         confidence = max(0.0, min(1.0, float(z[peak_idx]) / (2.0 * Z_THRESHOLD)))
-        events.append(
-            JumpEvent(int(t[start]), int(t[end - 1]), float(mag[peak_idx]), confidence)
-        )
-    return JumpDetectionResult(events=tuple(events), sample_rate_hz=sr_hz)
+        raw.append(JumpEvent(int(t[start]), int(t[end - 1]), peak_g, confidence))
+    # Cluster: one detection per 3 s — keep the strongest event per cluster.
+    cluster_gap_ms = int(CLUSTER_GAP_SEC * 1000)
+    kept: list[JumpEvent] = []
+    for ev in raw:
+        if kept and ev.start_ms - kept[-1].end_ms <= cluster_gap_ms:
+            if ev.confidence > kept[-1].confidence:
+                kept[-1] = ev
+        else:
+            kept.append(ev)
+    return JumpDetectionResult(events=tuple(kept), sample_rate_hz=sr_hz)
 
 
 def _estimate_sample_rate(t_ms: NDArray[np.int64]) -> float:
@@ -94,15 +106,12 @@ def _estimate_sample_rate(t_ms: NDArray[np.int64]) -> float:
     return 1000.0 / median_dt_ms if median_dt_ms > 0 else 52.0
 
 
-def _gravity_removed_magnitude(
-    ax: NDArray[np.float64], ay: NDArray[np.float64], az: NDArray[np.float64]
-) -> NDArray[np.float64]:
+def _gravity_removed_magnitude(ax: NDArray[np.float64], ay: NDArray[np.float64], az: NDArray[np.float64]) -> NDArray[np.float64]:
     return np.abs(np.sqrt(ax * ax + ay * ay + az * az) - 1.0)
 
 
 def _rolling_z(mag: NDArray[np.float64], window_n: int) -> NDArray[np.float64]:
-    # Centred rolling median + MAD scale -- robust to jump samples polluting
-    # the baseline. 1.4826 converts MAD to ~sigma; floor avoids zero-division.
+    # Centred rolling median + MAD (1.4826 ≈ σ); robust to jumps in baseline.
     n = mag.size
     half = window_n // 2
     z = np.zeros(n, dtype=np.float64)
