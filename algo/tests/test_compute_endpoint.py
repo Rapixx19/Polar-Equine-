@@ -321,14 +321,15 @@ def test_compute_calibrated_horse_lands_in_zones(
     assert total_zone_s > 0, "calibrated config must put work into some zone"
 
 
-def test_compute_plausibility_gate_nulls_hrv_and_downgrades_status(
+def test_compute_plausibility_gate_preserves_hrv_and_downgrades_status(
     client: TestClient,
     patched: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Migration 036: when HRV is implausible, persist row with HRV nulled,
-    quality_flags populated, and status='complete_low_quality' instead of
-    'complete'. Reproduces Emma's 2026-05-15 RMSSD=747 ride shape."""
+    """Plausibility gate downgrades status + sets quality_flags, but HRV
+    values are persisted. Horse data is baseline-noisy; nulling every
+    flagged ride hid usable signal. Reproduces Emma's 2026-05-15 RMSSD=747
+    ride: row keeps the numbers, admin UI reads quality_flags for the badge."""
     from algorithms.hrv_metrics import HRVResult
 
     def _bad_hrv(rr_clean_ms: Any) -> HRVResult:
@@ -350,17 +351,17 @@ def test_compute_plausibility_gate_nulls_hrv_and_downgrades_status(
     assert res.status_code == 200, res.text
 
     written = patched["writes"][0]
-    assert written.rmssd_ms is None
-    assert written.sdnn_ms is None
-    assert written.pnn50_pct is None
-    assert written.pnn20_pct is None
-    assert written.hrv_completeness_quality is None
+    # HRV values are preserved — the badge is in quality_flags + status.
+    assert written.rmssd_ms == 747.0
+    assert written.sdnn_ms == 613.0
+    assert written.pnn50_pct == 83.0
+    assert written.pnn20_pct == 90.0
+    assert written.hrv_completeness_quality == 1.0
     assert written.quality_flags.get("rmssd_implausible") is True
     assert written.quality_flags.get("sdnn_implausible") is True
-    # HR stats are still trustworthy — keep them populated.
     assert written.hr_avg > 0
     assert written.hr_peak > 0
-    # Status transitions: computing → complete_low_quality (NOT complete).
+    # Status still downgrades so admin renders the "noisy" badge.
     statuses = [s for _, s in patched["status_calls"]]
     assert statuses[0] == "computing"
     assert statuses[-1] == "complete_low_quality"
