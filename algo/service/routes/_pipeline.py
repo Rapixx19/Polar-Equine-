@@ -83,7 +83,6 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             recovery_fit_quality=recovery_fit_quality,
             duration_s=_duration_s(session),
             quality_flags=verdict.flags,
-            null_hrv=verdict.hrv_unreliable,
         )
         try:
             write_session_metrics(row)

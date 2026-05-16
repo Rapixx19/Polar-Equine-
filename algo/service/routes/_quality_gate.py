@@ -13,9 +13,11 @@ Thresholds (sourced from equine HRV literature, see thesis refs):
   50-200 ms (Cottin 2013, Bisplinghoff 2018).
 - SDNN > 300 ms -> same envelope; flag for symmetry with RMSSD.
 
-When any flag fires, the caller should null the four HRV fields
-(rmssd_ms, sdnn_ms, pnn50_pct, pnn20_pct) and downgrade the session to
-``complete_low_quality`` rather than ``complete``.
+When any flag fires, the caller downgrades the session to
+``complete_low_quality`` rather than ``complete``. HRV values themselves
+are persisted regardless — horse data is baseline-noisy, and nulling
+every flagged ride hid too much usable signal. The admin UI reads
+``quality_flags`` to render a "noisy" badge alongside the numbers.
 """
 
 from __future__ import annotations

@@ -2,8 +2,10 @@
 
 Extracted from ``_pipeline.py`` to keep that module under Rule 1's 150-line
 budget after the migration-036 plausibility gate landed. Pure data shaping —
-no I/O, no logging, no policy beyond the ``null_hrv`` switch (which the
-caller decides via ``_quality_gate.evaluate_hrv_quality``).
+no I/O, no logging, no policy. The plausibility gate now annotates suspect
+HRV via ``quality_flags`` + status='complete_low_quality' (decided by the
+caller) instead of nulling the numbers; horse data is baseline-noisy and
+nulling every flagged row hides too much usable signal.
 """
 
 from __future__ import annotations
@@ -27,7 +29,6 @@ def compose_metrics_row(
     recovery_fit_quality: float | None,
     duration_s: int,
     quality_flags: dict[str, bool],
-    null_hrv: bool,
 ) -> SessionMetricsRow:
     return SessionMetricsRow(
         session_id=session.id,
@@ -36,12 +37,12 @@ def compose_metrics_row(
         hr_peak=int(np.max(hr_kept)),
         hr_min=int(np.min(hr_kept)),
         hr_sd=float(np.std(hr_kept, ddof=1)) if hr_kept.size > 1 else 0.0,
-        rmssd_ms=None if null_hrv else metrics.rmssd_ms,
-        sdnn_ms=None if null_hrv else metrics.sdnn_ms,
-        pnn50_pct=None if null_hrv else metrics.pnn50_pct,
-        pnn20_pct=None if null_hrv else metrics.pnn20_pct,
+        rmssd_ms=metrics.rmssd_ms,
+        sdnn_ms=metrics.sdnn_ms,
+        pnn50_pct=metrics.pnn50_pct,
+        pnn20_pct=metrics.pnn20_pct,
         rr_cleaning_quality=cleaned.quality,
-        hrv_completeness_quality=None if null_hrv else metrics.quality,
+        hrv_completeness_quality=metrics.quality,
         quality_flags=quality_flags,
         algo_version=algo_version,
         trimp_banister=workload.trimp_banister,

@@ -74,9 +74,11 @@ class SessionMetricsRow:
     hr_peak: int
     hr_min: int
     hr_sd: float
-    # HRV outputs are nullable from migration 036: the plausibility gate
-    # (rr_cleaning_quality < 0.5 or rmssd_ms > 300) nulls these and sets
-    # metrics_status='complete_low_quality' rather than persist nonsense.
+    # HRV outputs stay nullable (migration 036 column shape) but the
+    # plausibility gate no longer nulls them — it only downgrades
+    # metrics_status to 'complete_low_quality' and annotates quality_flags.
+    # Horse data is baseline-noisy; nulling every flagged ride hid usable
+    # signal. NULL still appears for older rows from before this change.
     rmssd_ms: float | None
     sdnn_ms: float | None
     pnn50_pct: float | None
