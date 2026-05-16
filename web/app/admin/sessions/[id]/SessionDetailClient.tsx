@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { HRChart } from "@/components/session/HRChart";
 import type { GaitLabel } from "@/lib/session/segments";
@@ -69,6 +69,36 @@ function fmtMetric(v: unknown, digits = 1): string {
   return digits === 0 ? Math.round(n).toString() : n.toFixed(digits);
 }
 
+type SignalSummary = {
+  lostCount: number;
+  weakCount: number;
+  badMs: number;
+  cleanPct: number | null;
+};
+
+function summarizeSignal(events: SignalEvent[], durationMs: number | undefined): SignalSummary {
+  let lostCount = 0;
+  let weakCount = 0;
+  let badMs = 0;
+  for (const e of events) {
+    const span = Math.max(0, e.t_end_ms - e.t_start_ms);
+    badMs += span;
+    if (e.kind === "lost") lostCount += 1;
+    else weakCount += 1;
+  }
+  const cleanPct =
+    durationMs && durationMs > 0
+      ? Math.max(0, Math.min(100, ((durationMs - badMs) / durationMs) * 100))
+      : null;
+  return { lostCount, weakCount, badMs, cleanPct };
+}
+
+function cleanTone(pct: number): { label: string; classes: string } {
+  if (pct >= 80) return { label: "Good", classes: "bg-[var(--lime)]/15 text-[var(--lime)]" };
+  if (pct >= 50) return { label: "Mixed", classes: "bg-amber-500/15 text-amber-700" };
+  return { label: "Poor", classes: "bg-[var(--red)]/15 text-[var(--red)]" };
+}
+
 export function SessionDetailClient({
   sessionId,
   samples,
@@ -95,6 +125,11 @@ export function SessionDetailClient({
     () => labels.map((l) => ({ start_ms: l.start_ms, end_ms: l.end_ms, label: l.label })),
     [labels],
   );
+  const signalSummary = useMemo(
+    () => summarizeSignal(signalEvents, durationMs),
+    [signalEvents, durationMs],
+  );
+  const [signalExpanded, setSignalExpanded] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -112,35 +147,63 @@ export function SessionDetailClient({
 
       {signalEvents.length > 0 && (
         <section>
-          <h2 className="mb-2 text-sm font-medium text-[var(--text-muted)]">
-            Signal-quality events
-          </h2>
-          <ul className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] text-sm">
-            {signalEvents.map((e, i) => (
-              <li
-                key={`${e.kind}-${e.t_start_ms}-${i}`}
-                className="grid grid-cols-12 items-center gap-3 p-3"
-              >
-                <span className="col-span-3 tabular-nums text-[var(--text-muted)]">
-                  {fmtRange(e.t_start_ms, e.t_end_ms)}
-                </span>
-                <span className="col-span-3">
+          <h2 className="mb-2 text-sm font-medium text-[var(--text-muted)]">Signal quality</h2>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                {signalSummary.cleanPct !== null ? (
                   <span
-                    className={
-                      e.kind === "lost"
-                        ? "rounded-full bg-[var(--red)]/15 px-2 py-0.5 text-xs text-[var(--red)]"
-                        : "rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700"
-                    }
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${cleanTone(signalSummary.cleanPct).classes}`}
                   >
-                    {e.kind === "lost" ? "Lost contact" : "Noisy"}
+                    {cleanTone(signalSummary.cleanPct).label} · {signalSummary.cleanPct.toFixed(0)}% clean
                   </span>
+                ) : (
+                  <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--text-muted)]">
+                    {signalEvents.length} drop events
+                  </span>
+                )}
+                <span className="text-xs text-[var(--text-faint)]">
+                  {signalSummary.lostCount} lost · {signalSummary.weakCount} weak ·{" "}
+                  {Math.round(signalSummary.badMs / 1000)}s of dropouts
                 </span>
-                <span className="col-span-6 tabular-nums text-right text-xs text-[var(--text-faint)]">
-                  {Math.max(1, Math.round((e.t_end_ms - e.t_start_ms) / 1000))} s
-                </span>
-              </li>
-            ))}
-          </ul>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSignalExpanded((v) => !v)}
+                className="text-xs text-[var(--text-muted)] underline-offset-4 hover:text-[var(--lime)] hover:underline"
+              >
+                {signalExpanded ? "Hide" : `Show ${signalEvents.length} events`}
+              </button>
+            </div>
+            {signalExpanded && (
+              <ul className="mt-3 divide-y divide-[var(--border)] border-t border-[var(--border)] text-sm">
+                {signalEvents.map((e, i) => (
+                  <li
+                    key={`${e.kind}-${e.t_start_ms}-${i}`}
+                    className="grid grid-cols-12 items-center gap-3 py-2"
+                  >
+                    <span className="col-span-3 tabular-nums text-[var(--text-muted)]">
+                      {fmtRange(e.t_start_ms, e.t_end_ms)}
+                    </span>
+                    <span className="col-span-3">
+                      <span
+                        className={
+                          e.kind === "lost"
+                            ? "rounded-full bg-[var(--red)]/15 px-2 py-0.5 text-xs text-[var(--red)]"
+                            : "rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700"
+                        }
+                      >
+                        {e.kind === "lost" ? "Lost contact" : "Noisy"}
+                      </span>
+                    </span>
+                    <span className="col-span-6 tabular-nums text-right text-xs text-[var(--text-faint)]">
+                      {Math.max(1, Math.round((e.t_end_ms - e.t_start_ms) / 1000))} s
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       )}
 
