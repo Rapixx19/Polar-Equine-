@@ -43,7 +43,11 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             set_metrics_status(session.id, "failed")
             raise HTTPException(status_code=422, detail="no_valid_hr_samples")
 
-        workload = trimp_zones.compute(samples.hr_bpm, samples.timestamp_ms)
+        workload = trimp_zones.compute(
+            samples.hr_bpm,
+            samples.timestamp_ms,
+            _workload_config(session),
+        )
         if workload.n_dropped > 0:
             log.warning(
                 "trimp.hr_dropped",
@@ -131,3 +135,16 @@ def _duration_s(session: SessionRow) -> int:
     if session.end_time is None:
         return 0
     return int((session.end_time - session.start_time).total_seconds())
+
+
+def _workload_config(session: SessionRow) -> trimp_zones.WorkloadConfig | None:
+    # Per-horse calibration (migration 038). One column set is enough; the
+    # other keeps its species default so half-calibrated horses still work.
+    if session.hr_max_bpm is None and session.hr_rest_bpm is None:
+        return None
+    d = trimp_zones.WorkloadConfig()
+    return trimp_zones.WorkloadConfig(
+        hr_max_bpm=float(session.hr_max_bpm) if session.hr_max_bpm else d.hr_max_bpm,
+        hr_rest_bpm=float(session.hr_rest_bpm) if session.hr_rest_bpm else d.hr_rest_bpm,
+        sex_factor=d.sex_factor,
+    )
