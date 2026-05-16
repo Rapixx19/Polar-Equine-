@@ -86,10 +86,14 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
   // `onDisconnect` is captured by subscribeHR at pair-time, before the
   // session is recording or PMD is enabled. We need to read the *current*
   // ingest state when a disconnect fires later, not the snapshot from
-  // pair-time. A ref kept fresh each render does that without re-binding
-  // the BLE listener (which would orphan the prior subscription).
+  // pair-time. A ref kept fresh each commit does that without re-binding
+  // the BLE listener (which would orphan the prior subscription). Updated
+  // inside an effect rather than during render to satisfy the
+  // react-hooks/refs rule.
   const ingestRef = useRef(ingest);
-  ingestRef.current = ingest;
+  useEffect(() => {
+    ingestRef.current = ingest;
+  });
   const captureQuality = useCaptureSession({
     active: ingest.state === "recording",
     sessionId: ingest.sessionId,

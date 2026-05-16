@@ -101,8 +101,8 @@ def test_low_magnitude_burst_rejected_by_peak_g_floor() -> None:
     b = a + int(0.2 * sr_hz)
     c = b + int(0.3 * sr_hz)
     d = c + int(0.2 * sr_hz)
-    # 0.8 g bumps: easily clear 4σ on the 0.02 g noise baseline but below
-    # MIN_PEAK_G = 1.5.
+    # 0.8 g bumps: easily clear 4 stddev on the 0.02 g noise baseline but
+    # below MIN_PEAK_G = 1.5.
     az[a:b] += 0.8
     az[c:d] += 0.8
     result = detect(t, ax, ay, az)

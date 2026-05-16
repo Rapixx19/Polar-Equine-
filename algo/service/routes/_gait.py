@@ -65,7 +65,11 @@ def label_session_from_acc(session_id: str) -> int:
         (seg.start_ms, seg.end_ms) for seg in gait.segments if seg.label == JUMP_GAIT_LABEL
     ]
     n_jumps_pre_gate = len(jumps.events)
-    kept_jumps = [ev for ev in jumps.events if _jump_in_canter(ev.start_ms - t0, ev.end_ms - t0, canter_intervals)]
+    kept_jumps = [
+        ev
+        for ev in jumps.events
+        if _jump_in_canter(ev.start_ms - t0, ev.end_ms - t0, canter_intervals)
+    ]
     for ev in kept_jumps:
         rows.append(
             LabelRow(

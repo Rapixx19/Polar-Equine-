@@ -6,12 +6,12 @@ whether HRV outputs should be nulled before write. Kept separate from
 constants visible in one place.
 
 Thresholds (sourced from equine HRV literature, see thesis refs):
-- RR cleaning quality < 0.5 → more than half the intervals were artefacts;
+- RR cleaning quality < 0.5 -> more than half the intervals were artefacts;
   Task Force 1996 recommends rejecting recordings with >5% ectopics, so 0.5
   is already generous.
-- RMSSD > 300 ms → biologically implausible; equine resting RMSSD sits at
-  50–200 ms (Cottin 2013, Bisplinghoff 2018).
-- SDNN > 300 ms → same envelope; flag for symmetry with RMSSD.
+- RMSSD > 300 ms -> biologically implausible; equine resting RMSSD sits at
+  50-200 ms (Cottin 2013, Bisplinghoff 2018).
+- SDNN > 300 ms -> same envelope; flag for symmetry with RMSSD.
 
 When any flag fires, the caller should null the four HRV fields
 (rmssd_ms, sdnn_ms, pnn50_pct, pnn20_pct) and downgrade the session to

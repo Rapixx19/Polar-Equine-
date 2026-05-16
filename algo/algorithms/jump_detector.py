@@ -10,7 +10,7 @@ from numpy.typing import NDArray
 
 from algorithms.version import algo_version
 
-# 8 s rolling baseline; 4σ catches impulses; duration band rejects EMI/sustained.
+# 8 s rolling baseline; 4 stddev catches impulses; duration band rejects EMI/sustained.
 BASELINE_SEC: float = 8.0
 Z_THRESHOLD: float = 4.0
 MIN_DURATION_SEC: float = 0.15
@@ -45,7 +45,8 @@ def detect(
     ay: NDArray[np.float64],
     az: NDArray[np.float64],
 ) -> JumpDetectionResult:
-    """Detect jump impulses. Empty result on insufficient input — pipeline must run on legacy sessions without ACC."""
+    """Detect jump impulses. Empty result on insufficient input - pipeline
+    must run on legacy sessions without ACC."""
     if timestamp_ms.size == 0 or ax.size == 0:
         return JumpDetectionResult(events=(), sample_rate_hz=52.0)
     if not (ax.size == ay.size == az.size == timestamp_ms.size):
@@ -106,12 +107,16 @@ def _estimate_sample_rate(t_ms: NDArray[np.int64]) -> float:
     return 1000.0 / median_dt_ms if median_dt_ms > 0 else 52.0
 
 
-def _gravity_removed_magnitude(ax: NDArray[np.float64], ay: NDArray[np.float64], az: NDArray[np.float64]) -> NDArray[np.float64]:
+def _gravity_removed_magnitude(
+    ax: NDArray[np.float64],
+    ay: NDArray[np.float64],
+    az: NDArray[np.float64],
+) -> NDArray[np.float64]:
     return np.abs(np.sqrt(ax * ax + ay * ay + az * az) - 1.0)
 
 
 def _rolling_z(mag: NDArray[np.float64], window_n: int) -> NDArray[np.float64]:
-    # Centred rolling median + MAD (1.4826 ≈ σ); robust to jumps in baseline.
+    # Centred rolling median + MAD (1.4826 ~ stddev); robust to jumps in baseline.
     n = mag.size
     half = window_n // 2
     z = np.zeros(n, dtype=np.float64)
