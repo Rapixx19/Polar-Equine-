@@ -14,7 +14,7 @@ from service.data import (
     set_metrics_status,
     write_session_metrics,
 )
-from service.data_types import REST_ACTIVITIES, SamplesHR, SessionRow
+from service.data_types import REST_ACTIVITIES, MetricsStatus, SamplesHR, SessionRow
 from service.models import ComputeResponse
 from service.routes._gait import label_session_from_acc
 from service.routes._quality_gate import evaluate_hrv_quality
@@ -88,7 +88,9 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
         label_count = _label_gait_safely(session.id)
-        final_status = "complete_low_quality" if verdict.hrv_unreliable else "complete"
+        final_status: MetricsStatus = (
+            "complete_low_quality" if verdict.hrv_unreliable else "complete"
+        )
         set_metrics_status(session.id, final_status)
     except HTTPException:
         raise
