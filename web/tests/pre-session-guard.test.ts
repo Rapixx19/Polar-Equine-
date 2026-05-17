@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { isIosUserAgent, shouldShowGuard } from "@/lib/ui/pre-session-guard";
+import {
+  isAndroidUserAgent,
+  isIosUserAgent,
+  shouldShowGuard,
+} from "@/lib/ui/pre-session-guard";
 
 describe("isIosUserAgent", () => {
   it("returns true for iPhone", () => {
@@ -26,14 +30,53 @@ describe("isIosUserAgent", () => {
   });
 });
 
+describe("isAndroidUserAgent", () => {
+  it("returns true for Android Chrome", () => {
+    expect(
+      isAndroidUserAgent("Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0.0.0"),
+    ).toBe(true);
+  });
+
+  it("returns false for iPhone", () => {
+    expect(isAndroidUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4)")).toBe(false);
+  });
+
+  it("returns false for desktop Chrome", () => {
+    expect(isAndroidUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X) Chrome/120.0.0.0")).toBe(
+      false,
+    );
+  });
+});
+
 describe("shouldShowGuard", () => {
-  it("shows on iOS when not yet dismissed", () => {
-    expect(shouldShowGuard({ userAgent: "iPhone", dismissed: false })).toBe(true);
+  it("returns 'ios' on iOS when not yet dismissed", () => {
+    expect(shouldShowGuard({ userAgent: "iPhone", dismissed: false })).toBe("ios");
   });
-  it("hides on iOS when already dismissed this session", () => {
-    expect(shouldShowGuard({ userAgent: "iPhone", dismissed: true })).toBe(false);
+  it("returns null on iOS when already dismissed this session", () => {
+    expect(shouldShowGuard({ userAgent: "iPhone", dismissed: true })).toBeNull();
   });
-  it("hides on non-iOS regardless of dismissal", () => {
-    expect(shouldShowGuard({ userAgent: "Android", dismissed: false })).toBe(false);
+  it("returns 'android' on Android when not yet dismissed", () => {
+    expect(
+      shouldShowGuard({
+        userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0.0.0",
+        dismissed: false,
+      }),
+    ).toBe("android");
+  });
+  it("returns null on Android when already dismissed", () => {
+    expect(
+      shouldShowGuard({
+        userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/120.0.0.0",
+        dismissed: true,
+      }),
+    ).toBeNull();
+  });
+  it("returns null on desktop regardless of dismissal", () => {
+    expect(
+      shouldShowGuard({
+        userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X) Chrome/120.0.0.0",
+        dismissed: false,
+      }),
+    ).toBeNull();
   });
 });
