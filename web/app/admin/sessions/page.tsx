@@ -52,6 +52,23 @@ export default async function AdminSessionsPage() {
 
   const sessions = (rows ?? []) as unknown as SessionRow[];
 
+  // Aggregate disconnect events per listed session so the audit takes one glance
+  // instead of clicking into each detail page. kind='lost' is the proxy for
+  // GATT drops; weak is HR-contact noise and not what we're auditing here.
+  const dropsBySession = new Map<string, number>();
+  if (sessions.length > 0) {
+    const ids = sessions.map((s) => s.id);
+    const { data: drops } = await supabase
+      .from("session_signal_events")
+      .select("session_id")
+      .eq("kind", "lost")
+      .in("session_id", ids);
+    for (const row of drops ?? []) {
+      const sid = (row as { session_id: string }).session_id;
+      dropsBySession.set(sid, (dropsBySession.get(sid) ?? 0) + 1);
+    }
+  }
+
   return (
     <main className="min-h-screen p-6">
       <div className="mx-auto w-full max-w-4xl">
@@ -104,8 +121,16 @@ export default async function AdminSessionsPage() {
                       </span>
                     )}
                   </span>
-                  <span className="col-span-1 text-[var(--text-muted)]">
-                    {durationMinutes(s.start_time, s.end_time)}
+                  <span className="col-span-1 flex items-center gap-1.5 text-[var(--text-muted)]">
+                    <span>{durationMinutes(s.start_time, s.end_time)}</span>
+                    {(dropsBySession.get(s.id) ?? 0) > 0 && (
+                      <span
+                        title={`${dropsBySession.get(s.id)} disconnect events`}
+                        className="inline-flex items-center rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
+                      >
+                        ⚠{dropsBySession.get(s.id)}
+                      </span>
+                    )}
                   </span>
                   <span className="col-span-1 text-right text-xs uppercase tracking-wide text-[var(--text-faint)]">
                     {s.status}

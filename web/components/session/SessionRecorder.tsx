@@ -319,6 +319,12 @@ export function SessionRecorder({ horse, activity, ridingSubtype = null, activit
             sessionId={ingest.sessionId}
             startedAt={ingest.startedAt}
           />
+          <p
+            role="note"
+            className="text-center text-xs text-amber-300/80"
+          >
+            Keep this screen open. Switching apps or locking can drop the connection.
+          </p>
         </>
       )}
 
