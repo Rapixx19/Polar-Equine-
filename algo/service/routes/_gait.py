@@ -17,7 +17,7 @@ import structlog
 
 from algorithms import gait_classifier, jump_detector
 from service.data_acc import delete_auto_labels, read_acc_samples, write_labels
-from service.data_types import LabelRow
+from service.data_types import JUMPING_SUBTYPES, LabelRow
 
 log = structlog.get_logger()
 
@@ -30,8 +30,13 @@ GAIT_GATE_MARGIN_MS: int = 2000
 JUMP_GAIT_LABEL: str = "canter_gallop"
 
 
-def label_session_from_acc(session_id: str) -> int:
+def label_session_from_acc(session_id: str, *, riding_subtype: str | None = None) -> int:
     """Run gait + jump classifiers on a session's ACC stream, write labels.
+
+    ``riding_subtype`` gates the jump detector: subtypes outside JUMPING_SUBTYPES
+    (i.e. flat_work, hack, or NULL) skip jump detection entirely. The rider
+    declares this at finalize time, which removes the entire class of
+    false-positive jumps on trot/gallop-only sessions.
 
     Returns the number of label rows written (gait segments + jump events).
     Caller is responsible for isolating exceptions; this function raises on
@@ -43,7 +48,12 @@ def label_session_from_acc(session_id: str) -> int:
         return 0
 
     gait = gait_classifier.classify(samples.timestamp_ms, samples.ax, samples.ay, samples.az)
-    jumps = jump_detector.detect(samples.timestamp_ms, samples.ax, samples.ay, samples.az)
+    run_jump_detector = riding_subtype in JUMPING_SUBTYPES
+    jumps = (
+        jump_detector.detect(samples.timestamp_ms, samples.ax, samples.ay, samples.az)
+        if run_jump_detector
+        else None
+    )
 
     rows: list[LabelRow] = []
     for seg in gait.segments:
@@ -61,27 +71,31 @@ def label_session_from_acc(session_id: str) -> int:
     # Jump timestamps are absolute (ms since epoch); rebase to session start so
     # they match the gait segments' relative-ms convention.
     t0 = int(samples.timestamp_ms[0])
-    canter_intervals = [
-        (seg.start_ms, seg.end_ms) for seg in gait.segments if seg.label == JUMP_GAIT_LABEL
-    ]
-    n_jumps_pre_gate = len(jumps.events)
-    kept_jumps = [
-        ev
-        for ev in jumps.events
-        if _jump_in_canter(ev.start_ms - t0, ev.end_ms - t0, canter_intervals)
-    ]
-    for ev in kept_jumps:
-        rows.append(
-            LabelRow(
-                session_id=session_id,
-                start_ms=ev.start_ms - t0,
-                end_ms=ev.end_ms - t0,
-                label_type="jump",
-                jump_count=1,
-                confidence=ev.confidence,
-                source="auto",
+    n_jumps_pre_gate = 0
+    n_jumps_after_gate = 0
+    if jumps is not None:
+        canter_intervals = [
+            (seg.start_ms, seg.end_ms) for seg in gait.segments if seg.label == JUMP_GAIT_LABEL
+        ]
+        n_jumps_pre_gate = len(jumps.events)
+        kept_jumps = [
+            ev
+            for ev in jumps.events
+            if _jump_in_canter(ev.start_ms - t0, ev.end_ms - t0, canter_intervals)
+        ]
+        n_jumps_after_gate = len(kept_jumps)
+        for ev in kept_jumps:
+            rows.append(
+                LabelRow(
+                    session_id=session_id,
+                    start_ms=ev.start_ms - t0,
+                    end_ms=ev.end_ms - t0,
+                    label_type="jump",
+                    jump_count=1,
+                    confidence=ev.confidence,
+                    source="auto",
+                )
             )
-        )
 
     delete_auto_labels(session_id)
     write_labels(rows)
@@ -90,7 +104,9 @@ def label_session_from_acc(session_id: str) -> int:
         session_id=session_id,
         n_segments=len(gait.segments),
         n_jumps_raw=n_jumps_pre_gate,
-        n_jumps_after_gait_gate=len(kept_jumps),
+        n_jumps_after_gait_gate=n_jumps_after_gate,
+        jump_detector_run=run_jump_detector,
+        riding_subtype=riding_subtype,
         sample_rate_hz=gait.sample_rate_hz,
     )
     return len(rows)

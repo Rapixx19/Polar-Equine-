@@ -104,34 +104,22 @@ describe("PATCH /api/sessions/[id]", () => {
     expect(res.status).toBe(400);
   });
 
-  it("ends an active session and enqueues a compute job", async () => {
+  it("ends an active session without enqueuing — finalize triggers compute", async () => {
     getUserMock.mockReturnValueOnce({ id: "u1", email: "a@b.dev" });
     const { PATCH } = await import("@/app/api/sessions/[id]/route");
 
     const res = await PATCH(fakeReq({ action: "end" }), ctx);
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { ok: boolean; enqueued: boolean };
-    expect(json.enqueued).toBe(true);
+    const json = (await res.json()) as { ok: boolean };
+    expect(json.ok).toBe(true);
     expect(updateSpy).toHaveBeenCalledTimes(1);
     const patch = updateSpy.mock.calls[0][0] as Record<string, unknown>;
     expect(patch.status).toBe("completed");
     expect(typeof patch.end_time).toBe("string");
     expect(typeof patch.updated_at).toBe("string");
-    expect(enqueueInsertSpy).toHaveBeenCalledTimes(1);
-    const enqueuePayload = enqueueInsertSpy.mock.calls[0][0] as Record<string, unknown>;
-    expect(enqueuePayload.session_id).toBe("11111111-1111-4111-8111-111111111111");
-    expect(enqueuePayload.job_type).toBe("compute");
-    expect(enqueuePayload.status).toBe("queued");
-  });
-
-  it("returns enqueued=false when the compute_jobs insert fails", async () => {
-    enqueueError = { code: "23505", message: "duplicate key" };
-    getUserMock.mockReturnValueOnce({ id: "u1", email: "a@b.dev" });
-    const { PATCH } = await import("@/app/api/sessions/[id]/route");
-    const res = await PATCH(fakeReq({ action: "end" }), ctx);
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as { ok: boolean; enqueued: boolean };
-    expect(json.enqueued).toBe(false);
+    // Compute enqueue moved to action=finalize so the rider can confirm the
+    // session kind before the algo runs. End is intentionally compute-silent.
+    expect(enqueueInsertSpy).not.toHaveBeenCalled();
   });
 
   it("returns 404 when row not found", async () => {

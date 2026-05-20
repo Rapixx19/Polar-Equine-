@@ -57,8 +57,18 @@ const endAction = z.object({
 const notesOnly = z.object({
   notes: z.string().max(2000),
 });
+// Rider picks the kind (and optionally notes) after End. Maps to a fresh
+// (activity_type, riding_subtype) + tag id. Triggers a recompute when it
+// changes the row vs. what was set at start.
+const finalizeAction = z.object({
+  action: z.literal("finalize"),
+  kind_id: z.string().min(1).max(64),
+  activity_type: z.enum(ACTIVITY_TYPES),
+  riding_subtype: z.enum(RIDING_SUBTYPES).nullable().optional(),
+  notes: z.string().max(2000).optional(),
+});
 
-export const patchSessionBody = z.union([endAction, notesOnly]);
+export const patchSessionBody = z.union([endAction, notesOnly, finalizeAction]);
 export type PatchSessionBody = z.infer<typeof patchSessionBody>;
 
 export const sessionIdParam = z.string().uuid();

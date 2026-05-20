@@ -34,7 +34,7 @@ def get_supabase_client() -> Client:
 
 def read_session(session_id: str) -> SessionRow:
     cols = (
-        "id,activity_type,start_time,end_time,metrics_status,"
+        "id,activity_type,riding_subtype,start_time,end_time,metrics_status,"
         "horse:horses(hr_max_bpm,hr_rest_bpm)"
     )
     client = get_supabase_client()
@@ -47,6 +47,7 @@ def read_session(session_id: str) -> SessionRow:
     if isinstance(h, list):
         h = h[0] if h else None
     horse = cast("dict[str, Any]", h) if isinstance(h, dict) else {}
+    raw_subtype = row.get("riding_subtype")
     return SessionRow(
         id=str(row["id"]),
         activity_type=str(row["activity_type"]),
@@ -55,6 +56,7 @@ def read_session(session_id: str) -> SessionRow:
         metrics_status=row["metrics_status"],
         hr_max_bpm=int(horse["hr_max_bpm"]) if horse.get("hr_max_bpm") is not None else None,
         hr_rest_bpm=int(horse["hr_rest_bpm"]) if horse.get("hr_rest_bpm") is not None else None,
+        riding_subtype=str(raw_subtype) if raw_subtype else None,
     )
 
 

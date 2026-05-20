@@ -24,6 +24,12 @@ MetricsStatus = Literal[
 # (NULL) and "tried but no decay" (0.0). Same reasoning for ``other``.
 REST_ACTIVITIES = frozenset({"stall", "grass_field", "transport", "vet"})
 
+# Rider-confirmed riding_subtype gates jump detection. Only sessions in this
+# set can produce jump labels; anything else (flat_work, hack, NULL) skips
+# the jump detector entirely. Frontend session-kind chips map "Gallop +
+# jumps" to light_jumping; other riding chips map to flat_work.
+JUMPING_SUBTYPES = frozenset({"light_jumping", "heavy_jumping", "cross_country"})
+
 
 @dataclass(frozen=True)
 class SessionRow:
@@ -33,11 +39,12 @@ class SessionRow:
     end_time: datetime | None
     metrics_status: MetricsStatus
     # Per-horse zone calibration overrides (migration 038). NULL falls back to
-    # the species defaults baked into trimp_zones.WorkloadConfig. The horse
-    # row carries these; we lift them into SessionRow so the pipeline doesn't
-    # need a second round-trip to Supabase.
+    # the species defaults baked into trimp_zones.WorkloadConfig.
     hr_max_bpm: int | None = None
     hr_rest_bpm: int | None = None
+    # Rider-confirmed subtype from the end-of-session chip picker (migration
+    # 037 free-text → kind_id link). Gates jump detection via JUMPING_SUBTYPES.
+    riding_subtype: str | None = None
 
 
 @dataclass(frozen=True)
