@@ -9,6 +9,7 @@ import { DataSourcesPanel, type SourceCounts } from "./DataSourcesPanel";
 import { ExportsPanel } from "./ExportsPanel";
 import { InsightPanel } from "./InsightPanel";
 import { LiveStatusBar } from "./LiveStatusBar";
+import { RecoveryUploadPanel } from "./RecoveryUploadPanel";
 
 export type { SourceCounts };
 
@@ -257,6 +258,8 @@ export function SessionDetailClient({
       <DataSourcesPanel counts={sourceCounts} />
 
       <ExportsPanel sessionId={sessionId} counts={sourceCounts} />
+
+      <RecoveryUploadPanel sessionId={sessionId} />
     </div>
   );
 }
