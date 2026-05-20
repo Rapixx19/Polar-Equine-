@@ -8,6 +8,7 @@ import { createServerSupabaseClient, getUser } from "@/lib/auth/server";
 import { sessionInsightsTable, type SessionInsightRow } from "@/lib/insights/insights-table";
 import type { GaitLabel } from "@/lib/session/segments";
 
+import { KindEditorPanel } from "./KindEditorPanel";
 import { SessionDetailClient } from "./SessionDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ type SessionRow = {
   end_time: string | null;
   status: string;
   has_prototype_mount: boolean;
+  kind_id: string | null;
   horses: { name: string | null } | null;
   rider_profiles: { display_name: string | null } | null;
 };
@@ -56,7 +58,7 @@ export default async function AdminSessionDetailPage({
   const { data: sessionRow } = await supabase
     .from("sessions")
     .select(
-      "id, rider_id, horse_id, activity_type, start_time, end_time, status, has_prototype_mount, horses(name), rider_profiles(display_name)",
+      "id, rider_id, horse_id, activity_type, start_time, end_time, status, has_prototype_mount, kind_id, horses(name), rider_profiles(display_name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -199,6 +201,14 @@ export default async function AdminSessionDetailPage({
             <dd className="text-[var(--text-muted)]">{session.status}</dd>
           </div>
         </dl>
+
+        <div className="mb-6">
+          <KindEditorPanel
+            sessionId={session.id}
+            initialKindId={session.kind_id}
+            sessionStatus={session.status}
+          />
+        </div>
 
         <SessionDetailClient
           sessionId={session.id}

@@ -12,6 +12,7 @@ import {
 } from "@/lib/sessions/saved-summary";
 
 import { AnalyzingClient } from "./AnalyzingClient";
+import { FinalizeClient } from "./FinalizeClient";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,7 +31,7 @@ export default async function SessionSavedPage({
   const { data: sessionRow } = await supabase
     .from("sessions")
     .select(
-      "id, activity_type, start_time, end_time, status, metrics_status, horse:horses(name)",
+      "id, activity_type, start_time, end_time, status, metrics_status, kind_id, notes, horse:horses(name)",
     )
     .eq("id", id)
     .maybeSingle();
@@ -54,6 +55,24 @@ export default async function SessionSavedPage({
 
   const view = savedView(session);
   if (view === "redirect" || !session) redirect("/home");
+
+  // Kind not yet picked → show the finalize picker before any analysis.
+  // sessions.kind_id stores the chip id once finalize is confirmed; absence
+  // of a kind_id is the "kind unconfirmed" marker.
+  if (
+    session.status === "completed" &&
+    session.metrics_status === "pending" &&
+    !sessionRow?.kind_id
+  ) {
+    return (
+      <FinalizeClient
+        sessionId={session.id}
+        horseName={horse?.name ?? "your horse"}
+        initialKindId={null}
+        initialNotes={sessionRow?.notes ?? ""}
+      />
+    );
+  }
 
   if (view === "analyzing") {
     return <AnalyzingClient sessionId={session.id} horseName={horse?.name ?? "your horse"} />;

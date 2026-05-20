@@ -799,6 +799,7 @@ export type Database = {
           has_prototype_mount: boolean
           horse_id: string
           id: string
+          kind_id: string | null
           last_ingest_at: string | null
           metrics_status: string | null
           notes: string | null
@@ -818,6 +819,7 @@ export type Database = {
           has_prototype_mount?: boolean
           horse_id: string
           id?: string
+          kind_id?: string | null
           last_ingest_at?: string | null
           metrics_status?: string | null
           notes?: string | null
@@ -837,6 +839,7 @@ export type Database = {
           has_prototype_mount?: boolean
           horse_id?: string
           id?: string
+          kind_id?: string | null
           last_ingest_at?: string | null
           metrics_status?: string | null
           notes?: string | null

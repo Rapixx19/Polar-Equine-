@@ -90,7 +90,7 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
             set_metrics_status(session.id, "failed")
             raise HTTPException(status_code=500, detail=str(exc)) from exc
 
-        label_count = _label_gait_safely(session.id)
+        label_count = _label_gait_safely(session)
         final_status: MetricsStatus = (
             "complete_low_quality" if verdict.hrv_unreliable else "complete"
         )
@@ -109,13 +109,13 @@ def run_compute_pipeline(session: SessionRow) -> ComputeResponse:
     )
 
 
-def _label_gait_safely(session_id: str) -> int:
+def _label_gait_safely(session: SessionRow) -> int:
     # Auto-labels are nice-to-have; metrics are the contract. Failure here
     # must not flip metrics_status — log and keep going.
     try:
-        return label_session_from_acc(session_id)
+        return label_session_from_acc(session.id, riding_subtype=session.riding_subtype)
     except Exception as exc:
-        log.warning("gait.labelling_failed", session_id=session_id, error=str(exc))
+        log.warning("gait.labelling_failed", session_id=session.id, error=str(exc))
         return 0
 
 
