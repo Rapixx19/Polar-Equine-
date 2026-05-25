@@ -58,6 +58,8 @@ curl -i http://localhost:3000/api/_smoke   # → 200 with algo health
 
 ## Build status
 
-Tracking against `docs/05-build-plan.md` — 20 slices in 6 phases, ~108 hrs.
+Tracking against [`docs/05-build-plan.md`](docs/05-build-plan.md) — 20 slices in 6 phases, ~108 hrs.
 
-Currently on: **Phase 1 / Slice 1** (this scaffold).
+**Current state (2026-05-25):** Phases 0–3 done, Phase 4 partial (PMD + gait v0.1 ✅, stress test pending), Phase 5 partial (manual labels + admin dashboard ✅, anomaly-rest pending), Phase 6 partial (security gate ✅, iPhone polish + first-on-horse pending). Algo `0.7.0` live on Railway, latest migration `038`.
+
+See [`STATUS.md`](STATUS.md) for the full snapshot — what's shipped, what's pending, open branches, doc map.
